@@ -9,7 +9,7 @@
 需要 [uv](https://docs.astral.sh/uv/) 和一个 Anthropic 协议端点的 API key（官方或代理均可）。
 
 ```bash
-git clone <this-repo> MiniCode && cd MiniCode
+git clone https://github.com/FuSC24/MiniCode.git && cd MiniCode
 uv sync
 cp .env.example .env   # 填 ANTHROPIC_API_KEY 和 MODEL_ID
 ```
