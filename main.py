@@ -6,7 +6,7 @@
 #
 # Run:
 #   pip install anthropic python-dotenv
-#   echo "MODEL_ID=claude-opus-4-7" > .env
+#   echo "MODEL_ID=claude-sonnet-4-6" > .env
 #   echo "ANTHROPIC_API_KEY=sk-..." >> .env
 #   python main.py
 
@@ -72,7 +72,7 @@ VALID_MSG_TYPES = {
 }
 
 
-# === SECTION: persisted_output (s06) =========================================
+# === SECTION: persisted_output =========================================
 # Large tool outputs are written to disk and replaced in the conversation
 # with a small marker that points to the file. This stops one big bash output
 # from blowing the context window.
@@ -137,7 +137,7 @@ def safe_path(p: str) -> Path:
     return resolved
 
 
-# === SECTION: bash_security (s07) ============================================
+# === SECTION: bash_security ============================================
 class BashSecurityValidator:
     """Pre-permission scan for obviously dangerous bash patterns."""
 
@@ -169,7 +169,7 @@ class BashSecurityValidator:
 bash_validator = BashSecurityValidator()
 
 
-# === SECTION: permissions (s07) ==============================================
+# === SECTION: permissions ==============================================
 PERM_MODES = ("default", "plan", "auto", "yolo")
 READ_ONLY_TOOLS = {"read_file", "task_list", "task_get", "list_teammates",
                    "list_skills", "list_memory", "list_mcp_tools",
@@ -289,7 +289,7 @@ class PermissionManager:
         return True
 
 
-# === SECTION: hooks (s08) ====================================================
+# === SECTION: hooks ====================================================
 HOOK_EVENTS = ("PreToolUse", "PostToolUse", "SessionStart", "SessionEnd")
 HOOK_TIMEOUT = 30
 
@@ -375,7 +375,7 @@ class HookManager:
         return result
 
 
-# === SECTION: memory (s09) ===================================================
+# === SECTION: memory ===================================================
 MEMORY_TYPES = ("user", "feedback", "project", "reference")
 MEMORY_INDEX = MEMORY_DIR / "MEMORY.md"
 MAX_INDEX_LINES = 200
@@ -480,7 +480,7 @@ class MemoryManager:
         return result
 
 
-# === SECTION: base_tools (s02) ===============================================
+# === SECTION: base_tools ===============================================
 def run_bash(command: str, tool_use_id: str = "", timeout: int = 120) -> str:
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
@@ -557,7 +557,7 @@ def run_glob(pattern: str, tool_use_id: str = "") -> str:
         return f"Error: {e}"
 
 
-# === SECTION: skills (s05) ===================================================
+# === SECTION: skills ===================================================
 class SkillLoader:
     """Skills live as `skills/<name>/SKILL.md` with YAML frontmatter."""
 
@@ -606,7 +606,7 @@ class SkillLoader:
                          for n, s in self.skills.items())
 
 
-# === SECTION: todos (s03) ====================================================
+# === SECTION: todos ====================================================
 class TodoManager:
     """In-memory checklist with the at-most-one-in-progress invariant."""
 
@@ -651,7 +651,7 @@ class TodoManager:
         return any(it["status"] != "completed" for it in self.items)
 
 
-# === SECTION: subagent (s04) =================================================
+# === SECTION: subagent =================================================
 def run_subagent(prompt: str, agent_type: str = "Explore", max_turns: int = 30) -> str:
     """Spawn a one-shot subagent. Default is read-only Explore."""
     sub_tools = [
@@ -725,7 +725,7 @@ def run_subagent(prompt: str, agent_type: str = "Explore", max_turns: int = 30) 
     return "(subagent produced no response)"
 
 
-# === SECTION: compression (s06) ==============================================
+# === SECTION: compression ==============================================
 def estimate_tokens(messages: list) -> int:
     """Cheap token approximation. Good enough to trigger compaction."""
     return len(json.dumps(messages, default=str)) // 4
@@ -793,7 +793,7 @@ def auto_compact(messages: list, focus: str = None) -> list:
     return [{"role": "user", "content": cont}]
 
 
-# === SECTION: tasks (s12) ====================================================
+# === SECTION: tasks ====================================================
 class TaskManager:
     """File-backed task board: each task is one JSON file under .minicode/tasks/."""
 
@@ -889,7 +889,7 @@ class TaskManager:
         return out
 
 
-# === SECTION: background (s13) ===============================================
+# === SECTION: background ===============================================
 class BackgroundManager:
     """Run shell commands in daemon threads. Notifications drain into the loop."""
 
@@ -945,7 +945,7 @@ class BackgroundManager:
         return out
 
 
-# === SECTION: cron (s14) =====================================================
+# === SECTION: cron =====================================================
 def cron_matches(expr: str, dt: datetime) -> bool:
     """Match a 5-field cron expression against a datetime."""
     fields = expr.strip().split()
@@ -1097,7 +1097,7 @@ class CronScheduler:
             print(f"[cron] could not load durable file: {e}")
 
 
-# === SECTION: messaging (s15) ================================================
+# === SECTION: messaging ================================================
 class MessageBus:
     """File-backed inbox per teammate. One JSONL file per recipient."""
 
@@ -1133,7 +1133,7 @@ class MessageBus:
         return f"Broadcast to {n} teammates"
 
 
-# === SECTION: worktree (s18) =================================================
+# === SECTION: worktree =================================================
 class WorktreeManager:
     """Git-worktree-based parallel execution lanes.
 
@@ -1231,7 +1231,7 @@ class WorktreeManager:
         return "\n".join(lines)
 
 
-# === SECTION: mcp (s19) ======================================================
+# === SECTION: mcp ======================================================
 class MCPClient:
     """Minimal stdio JSON-RPC client for an MCP-like server.
 
@@ -1395,12 +1395,12 @@ class MCPManager:
         return self.clients[client_name].call_tool(raw, arguments)
 
 
-# === SECTION: team_protocol (s16) ============================================
+# === SECTION: team_protocol ============================================
 shutdown_requests = {}
 plan_requests = {}
 
 
-# === SECTION: teammates (s15/s17) ============================================
+# === SECTION: teammates ============================================
 class TeammateManager:
     """Spawn long-running teammates that work, idle, then resume on signals.
 
@@ -1658,7 +1658,7 @@ class TeammateManager:
             self._set_status(name, "working")
 
 
-# === SECTION: shutdown / plan_approval (s16) =================================
+# === SECTION: shutdown / plan_approval =================================
 def handle_shutdown_request(bus: MessageBus, teammate: str) -> str:
     req_id = str(uuid.uuid4())[:8]
     shutdown_requests[req_id] = {"target": teammate, "status": "pending"}
@@ -1693,7 +1693,7 @@ MCP = MCPManager()
 TEAM = TeammateManager(BUS, TASK_MGR, PERMS, HOOKS, MCP)
 
 
-# === SECTION: system_prompt (s10) ============================================
+# === SECTION: system_prompt ============================================
 def build_system_prompt() -> str:
     parts = [
         f"You are MiniCode, a coding agent operating at {WORKDIR}.",
@@ -1715,7 +1715,7 @@ def build_system_prompt() -> str:
     return "\n".join(parts)
 
 
-# === SECTION: tool_dispatch (s02) ============================================
+# === SECTION: tool_dispatch ============================================
 TOOL_HANDLERS = {
     "bash":             lambda **kw: run_bash(kw["command"], kw.get("tool_use_id", ""), kw.get("timeout", 120)),
     "read_file":        lambda **kw: run_read(kw["path"], kw.get("tool_use_id", ""),
@@ -2017,7 +2017,7 @@ PARALLEL_MAX_WORKERS = 6
 _PERMS_ASK_LOCK = threading.Lock()
 
 
-# === SECTION: agent_loop (s01 + s11) =========================================
+# === SECTION: agent_loop =========================================
 def execute_one_tool(block, hooks: HookManager, perms: PermissionManager) -> tuple:
     """One pass through the tool pipeline:
        hook PreToolUse -> permission -> handler -> hook PostToolUse.
@@ -2084,13 +2084,13 @@ def agent_loop(messages: list):
     rounds_without_todo = 0
     consecutive_errors = 0
     while True:
-        # s06: compression pipeline.
+        # compression pipeline.
         microcompact(messages)
         if estimate_tokens(messages) > TOKEN_THRESHOLD:
             print("[auto-compact triggered]")
             messages[:] = auto_compact(messages)
 
-        # s13: drain background notifications into the conversation.
+        # drain background notifications into the conversation.
         notifs = BG.drain()
         if notifs:
             txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
@@ -2098,14 +2098,14 @@ def agent_loop(messages: list):
                              "content": f"<background-results>\n{txt}\n</background-results>"})
             messages.append({"role": "assistant", "content": "Noted background results."})
 
-        # s14: drain cron firings.
+        # drain cron firings.
         cron_msgs = CRON.drain()
         for c in cron_msgs:
             messages.append({"role": "user", "content":
                 f"<scheduled-trigger id='{c['task_id']}' cron='{c['cron']}' "
                 f"at='{c['fired_at']}'>\n{c['prompt']}\n</scheduled-trigger>"})
 
-        # s15/s16: pick up lead inbox.
+        # pick up lead inbox.
         inbox = BUS.read_inbox("lead")
         if inbox:
             messages.append({"role": "user",
@@ -2212,7 +2212,7 @@ def agent_loop(messages: list):
                 tr["is_error"] = True
             results.append(tr)
 
-        # s03: nag the model if it has open todos but stops touching them.
+        # nag the model if it has open todos but stops touching them.
         rounds_without_todo = 0 if used_todo else rounds_without_todo + 1
         if TODO.has_open_items() and rounds_without_todo >= 3:
             results.insert(0, {"type": "text",
