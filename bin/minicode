@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# minicode -- launch the MiniCode TUI in any directory.
+#
+# Usage:
+#   minicode                     # run TUI in the current directory
+#   minicode <dir>               # run TUI with <dir> as workspace
+#   minicode --mode auto         # start in auto perm mode
+#   minicode --repl              # plain stdin REPL instead of TUI
+#   minicode --help
+#
+# Install:
+#   ln -s "$(pwd)/bin/minicode" ~/bin/minicode   # from inside MiniCode/
+#   ensure ~/bin is on PATH
+set -euo pipefail
+
+# Resolve the MiniCode project root from this script's location, following
+# symlinks. Works whether the script is invoked directly or via a symlink in PATH.
+_resolve_root() {
+    local src="${BASH_SOURCE[0]}"
+    while [ -L "$src" ]; do
+        local dir
+        dir="$(cd -P "$(dirname "$src")" && pwd)"
+        src="$(readlink "$src")"
+        [[ "$src" != /* ]] && src="$dir/$src"
+    done
+    cd -P "$(dirname "$src")/.." && pwd
+}
+PROJECT_ROOT="$(_resolve_root)"
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "minicode: uv is not installed. See https://docs.astral.sh/uv/" >&2
+    exit 1
+fi
+
+mode="tui"
+args=()
+for a in "$@"; do
+    case "$a" in
+        --repl) mode="repl" ;;
+        --tui)  mode="tui" ;;
+        --help|-h)
+            cat <<EOF
+minicode -- launch MiniCode in any directory.
+
+Usage:
+  minicode                start TUI in current directory
+  minicode <dir>          start TUI with <dir> as workspace
+  minicode --repl [<dir>] use the plain REPL instead of the TUI
+  minicode --mode <m>     initial permission mode: default|plan|auto|yolo
+  minicode -h, --help     this help
+
+Project root: $PROJECT_ROOT
+EOF
+            exit 0
+            ;;
+        *) args+=("$a") ;;
+    esac
+done
+
+# Default workdir = current directory if no positional was given.
+have_dir=0
+for a in "${args[@]:-}"; do
+    case "$a" in
+        --*) ;;
+        *) have_dir=1; break ;;
+    esac
+done
+
+if [ "$mode" = "tui" ]; then
+    target_dir=""
+    pass_args=()
+    for a in "${args[@]:-}"; do
+        case "$a" in
+            --*) pass_args+=("$a") ;;
+            *)
+                if [ -z "$target_dir" ]; then
+                    target_dir="$a"
+                else
+                    pass_args+=("$a")
+                fi
+                ;;
+        esac
+    done
+    if [ -z "$target_dir" ]; then
+        target_dir="$PWD"
+    fi
+    exec uv run --project "$PROJECT_ROOT" python "$PROJECT_ROOT/tui.py" \
+        "$target_dir" "${pass_args[@]:-}"
+else
+    if [ "$have_dir" = "1" ]; then
+        for a in "${args[@]}"; do
+            case "$a" in
+                --*) ;;
+                *) cd "$a"; break ;;
+            esac
+        done
+    fi
+    exec uv run --project "$PROJECT_ROOT" python "$PROJECT_ROOT/main.py"
+fi

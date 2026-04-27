@@ -1,0 +1,36 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python / uv
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# MiniCode runtime state (per-workspace, not source)
+.minicode/
+.memory/
+.task_outputs/
+.transcripts/
+.team/
+.tasks/
+
+# Worktree state (if any)
+.worktrees/
+
+# Misc
+*.log

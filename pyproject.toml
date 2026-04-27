@@ -1,0 +1,14 @@
+[project]
+name = "minicode"
+version = "0.1.0"
+description = "A complete, runnable coding-agent harness in one file (learn-claude-code companion)."
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.25.0",
+    "python-dotenv>=1.0.0",
+    "textual>=0.85",
+]
+
+[project.scripts]
+minicode = "main:repl"
+minicode-tui = "tui:main_cli"
