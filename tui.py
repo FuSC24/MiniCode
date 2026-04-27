@@ -338,8 +338,6 @@ class MiniCodeApp(App):
         self._log_widget = self.query_one("#log", RichLog)
 
         # Hook up the permission modal so worker threads can ask the UI.
-        original_ask = main.PERMS.ask_user
-
         def tui_ask(tool_name: str, tool_input: dict) -> bool:
             # Worker thread calls this; show a modal on the UI thread.
             event = threading.Event()
@@ -357,13 +355,8 @@ class MiniCodeApp(App):
             if decision == "always":
                 main.PERMS.rules.append(
                     {"tool": tool_name, "path": "*", "behavior": "allow"})
-                main.PERMS.consecutive_denials = 0
                 return True
-            if decision == "y":
-                main.PERMS.consecutive_denials = 0
-                return True
-            main.PERMS.consecutive_denials += 1
-            return False
+            return decision == "y"
 
         main.PERMS.ask_user = tui_ask  # type: ignore[assignment]
 

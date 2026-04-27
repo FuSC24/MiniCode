@@ -135,10 +135,9 @@ class BashSecurityValidator:
 
     VALIDATORS = [
         ("sudo",          r"\bsudo\b"),
-        # `rm -rf /` followed by end-of-string, whitespace, or a shell
-        # separator (`;` `&&` `||` `|`). Lookahead so chained forms like
-        # `rm -rf / && echo done` are still classified SEVERE.
-        ("rm_rf_root",    r"\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*\s+)?/(?=\s|$|[;&|])"),
+        # rm + any flag tokens (-r, --, --recursive) + / bounded by
+        # whitespace / end / shell separator / glob (`*` covers /*).
+        ("rm_rf_root",    r"\brm\s+(?:--?[a-zA-Z]*\s+)*/(?=\s|$|[;&|*])"),
         ("rm_rf",         r"\brm\s+-[a-zA-Z]*r"),
         ("fork_bomb",     r":\(\)\s*\{"),
         ("dd_disk",       r"\bdd\b.*of=/dev/"),
@@ -209,7 +208,6 @@ class PermissionManager:
             raise ValueError(f"Unknown perm mode: {mode}")
         self.mode = mode
         self.rules = rules or list(self.DEFAULT_RULES)
-        self.consecutive_denials = 0
 
     def set_mode(self, mode: str):
         if mode not in PERM_MODES:
@@ -249,7 +247,6 @@ class PermissionManager:
         # Step 3: allow rules.
         for rule in self.rules:
             if rule["behavior"] == "allow" and self._matches(rule, tool_name, tool_input):
-                self.consecutive_denials = 0
                 return {"behavior": "allow", "reason": f"Matched allow rule: {rule}"}
 
         # Step 4: ask user.
@@ -264,13 +261,8 @@ class PermissionManager:
             return False
         if answer == "always":
             self.rules.append({"tool": tool_name, "path": "*", "behavior": "allow"})
-            self.consecutive_denials = 0
             return True
-        if answer in ("y", "yes"):
-            self.consecutive_denials = 0
-            return True
-        self.consecutive_denials += 1
-        return False
+        return answer in ("y", "yes")
 
     def _matches(self, rule: dict, tool_name: str, tool_input: dict) -> bool:
         if rule.get("tool") and rule["tool"] != "*" and rule["tool"] != tool_name:
@@ -476,7 +468,24 @@ class MemoryManager:
 
 
 # === SECTION: base_tools ===============================================
+def _clamp_timeout(value, default: int, hi: int) -> int:
+    """Coerce a possibly-None / negative / oversized timeout into a sane int.
+
+    Models sometimes pass `null` or wild values for `timeout`. Without this,
+    `subprocess.run(timeout=None)` would block forever and a huge value
+    would let a runaway shell hang the agent indefinitely.
+    """
+    try:
+        v = int(value) if value is not None else default
+    except (TypeError, ValueError):
+        return default
+    if v <= 0:
+        return default
+    return min(v, hi)
+
+
 def run_bash(command: str, tool_use_id: str = "", timeout: int = 120) -> str:
+    timeout = _clamp_timeout(timeout, default=120, hi=600)
     try:
         r = subprocess.run(command, shell=True, cwd=WORKDIR,
                            capture_output=True, text=True, timeout=timeout)
@@ -790,10 +799,17 @@ def auto_compact(messages: list, focus: str = None) -> list:
 
 # === SECTION: tasks ====================================================
 class TaskManager:
-    """File-backed task board: each task is one JSON file under .minicode/tasks/."""
+    """File-backed task board: each task is one JSON file under .minicode/tasks/.
+
+    A single lock guards id-allocation + read-modify-write so concurrent
+    `create` / `update` / `claim` calls from the lead and N teammate threads
+    don't corrupt files (two creates picking the same id, claim racing with
+    update, etc.).
+    """
 
     def __init__(self):
         TASKS_DIR.mkdir(parents=True, exist_ok=True)
+        self._lock = threading.Lock()
 
     def _next_id(self) -> int:
         ids = [int(f.stem.split("_")[1]) for f in TASKS_DIR.glob("task_*.json")]
@@ -813,50 +829,60 @@ class TaskManager:
 
     def create(self, subject: str, description: str = "",
                blocked_by: list = None, worktree: str = None) -> str:
-        task = {
-            "id": self._next_id(),
-            "subject": subject,
-            "description": description,
-            "status": "pending",
-            "owner": None,
-            "worktree": worktree,
-            "blockedBy": list(blocked_by or []),
-            "blocks": [],
-            "createdAt": time.time(),
-        }
-        self._save(task)
+        with self._lock:
+            task = {
+                "id": self._next_id(),
+                "subject": subject,
+                "description": description,
+                "status": "pending",
+                "owner": None,
+                "worktree": worktree,
+                "blockedBy": list(blocked_by or []),
+                "blocks": [],
+                "createdAt": time.time(),
+            }
+            self._save(task)
         return json.dumps(task, indent=2)
 
     def get(self, tid: int) -> str:
-        return json.dumps(self._load(tid), indent=2)
+        with self._lock:
+            return json.dumps(self._load(tid), indent=2)
 
     def update(self, tid: int, status: str = None,
                add_blocked_by: list = None, add_blocks: list = None,
-               worktree: str = None) -> str:
-        task = self._load(tid)
-        if status:
-            task["status"] = status
-            if status == "completed":
-                # Unblock any task that was blocked on this one.
-                for f in TASKS_DIR.glob("task_*.json"):
-                    t = json.loads(f.read_text())
-                    if tid in t.get("blockedBy", []):
-                        t["blockedBy"].remove(tid)
-                        self._path(t["id"]).write_text(json.dumps(t, indent=2))
-            if status == "deleted":
-                self._path(tid).unlink(missing_ok=True)
-                return f"Task {tid} deleted"
-        if add_blocked_by:
-            task["blockedBy"] = list(set(task.get("blockedBy", []) + add_blocked_by))
-        if add_blocks:
-            task["blocks"] = list(set(task.get("blocks", []) + add_blocks))
-        if worktree is not None:
-            task["worktree"] = worktree
-        self._save(task)
-        return json.dumps(task, indent=2)
+               worktree: str = None, actor: str = None) -> str:
+        with self._lock:
+            task = self._load(tid)
+            owner = task.get("owner")
+            # `lead` and absent actor (internal/legacy callers) bypass.
+            if actor and actor != "lead" and owner and owner != actor:
+                return (f"Error: task #{tid} is owned by '{owner}', "
+                        f"'{actor}' cannot update it. The tool did NOT run.")
+            if status:
+                task["status"] = status
+                if status in ("completed", "deleted"):
+                    # Unblock any task that was waiting on this one.
+                    for f in TASKS_DIR.glob("task_*.json"):
+                        t = json.loads(f.read_text())
+                        if tid in t.get("blockedBy", []):
+                            t["blockedBy"].remove(tid)
+                            self._path(t["id"]).write_text(json.dumps(t, indent=2))
+                if status == "deleted":
+                    self._path(tid).unlink(missing_ok=True)
+                    return f"Task {tid} deleted"
+            if add_blocked_by:
+                task["blockedBy"] = list(set(task.get("blockedBy", []) + add_blocked_by))
+            if add_blocks:
+                task["blocks"] = list(set(task.get("blocks", []) + add_blocks))
+            if worktree is not None:
+                task["worktree"] = worktree
+            self._save(task)
+            return json.dumps(task, indent=2)
 
     def list_all(self) -> str:
-        tasks = [json.loads(f.read_text()) for f in sorted(TASKS_DIR.glob("task_*.json"))]
+        with self._lock:
+            tasks = [json.loads(f.read_text())
+                     for f in sorted(TASKS_DIR.glob("task_*.json"))]
         if not tasks:
             return "No tasks."
         lines = []
@@ -869,19 +895,25 @@ class TaskManager:
         return "\n".join(lines)
 
     def claim(self, tid: int, owner: str) -> str:
-        task = self._load(tid)
-        task["owner"] = owner
-        task["status"] = "in_progress"
-        self._save(task)
+        with self._lock:
+            task = self._load(tid)
+            # Refuse to re-claim a task another teammate already owns.
+            if task.get("owner") and task["owner"] != owner:
+                return (f"Error: task #{tid} already owned by '{task['owner']}'. "
+                        f"The tool did NOT run.")
+            task["owner"] = owner
+            task["status"] = "in_progress"
+            self._save(task)
         return f"Claimed task #{tid} for {owner}"
 
     def unclaimed(self) -> list:
-        out = []
-        for f in sorted(TASKS_DIR.glob("task_*.json")):
-            t = json.loads(f.read_text())
-            if t.get("status") == "pending" and not t.get("owner") and not t.get("blockedBy"):
-                out.append(t)
-        return out
+        with self._lock:
+            out = []
+            for f in sorted(TASKS_DIR.glob("task_*.json")):
+                t = json.loads(f.read_text())
+                if t.get("status") == "pending" and not t.get("owner") and not t.get("blockedBy"):
+                    out.append(t)
+            return out
 
 
 # === SECTION: background ===============================================
@@ -893,6 +925,7 @@ class BackgroundManager:
         self.notifications = Queue()
 
     def run(self, command: str, timeout: int = 600) -> str:
+        timeout = _clamp_timeout(timeout, default=600, hi=3600)
         tid = str(uuid.uuid4())[:8]
         self.tasks[tid] = {"status": "running", "command": command, "result": None}
         threading.Thread(target=self._exec, args=(tid, command, timeout), daemon=True).start()
@@ -1101,10 +1134,24 @@ class CronScheduler:
 
 # === SECTION: messaging ================================================
 class MessageBus:
-    """File-backed inbox per teammate. One JSONL file per recipient."""
+    """File-backed inbox per teammate. One JSONL file per recipient.
+
+    Per-recipient locks keep `read+truncate` atomic so a `send` interleaved
+    between read and truncate won't get clobbered. Different recipients
+    don't block each other.
+    """
 
     def __init__(self):
         INBOX_DIR.mkdir(parents=True, exist_ok=True)
+        self._locks: dict = {}
+        self._locks_lock = threading.Lock()
+
+    def _lock_for(self, name: str) -> threading.Lock:
+        with self._locks_lock:
+            lk = self._locks.get(name)
+            if lk is None:
+                lk = self._locks[name] = threading.Lock()
+            return lk
 
     def send(self, sender: str, to: str, content: str,
              msg_type: str = "message", extra: dict = None) -> str:
@@ -1114,16 +1161,26 @@ class MessageBus:
                "content": content, "timestamp": time.time()}
         if extra:
             msg.update(extra)
-        with open(INBOX_DIR / f"{to}.jsonl", "a") as f:
-            f.write(json.dumps(msg) + "\n")
+        with self._lock_for(to):
+            with open(INBOX_DIR / f"{to}.jsonl", "a") as f:
+                f.write(json.dumps(msg) + "\n")
         return f"Sent {msg_type} to {to}"
 
     def read_inbox(self, name: str) -> list:
-        p = INBOX_DIR / f"{name}.jsonl"
-        if not p.exists():
-            return []
-        msgs = [json.loads(l) for l in p.read_text().strip().splitlines() if l]
-        p.write_text("")  # drain semantics
+        with self._lock_for(name):
+            p = INBOX_DIR / f"{name}.jsonl"
+            if not p.exists():
+                return []
+            text = p.read_text()
+            # Truncate while still under the lock so concurrent sends
+            # append into a fresh file, not the snapshot we're parsing.
+            p.write_text("")
+        msgs = []
+        for line in text.splitlines():
+            try:
+                msgs.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
         return msgs
 
     def broadcast(self, sender: str, content: str, names: list) -> str:
@@ -1567,7 +1624,8 @@ class TeammateManager:
                 out = self.task_mgr.claim(block.input["task_id"], name)
             elif block.name == "task_update":
                 out = self.task_mgr.update(block.input["task_id"],
-                                            block.input.get("status"))
+                                            block.input.get("status"),
+                                            actor=name)
             elif block.name == "request_plan_approval":
                 req_id = str(uuid.uuid4())[:8]
                 plan_requests[req_id] = {"from": name, "plan": block.input["plan"],
@@ -1583,6 +1641,17 @@ class TeammateManager:
         return out, is_error
 
     def _loop(self, name: str, role: str, prompt: str):
+        try:
+            self._loop_body(name, role, prompt)
+        except Exception as e:
+            # Top-level guard so a thread can't die silently with status
+            # stuck on "working" -- the team panel would otherwise show a
+            # zombie member forever.
+            import traceback
+            print(f"  [{name}] CRASHED: {e}\n{traceback.format_exc()}")
+            self._set_status(name, "crashed")
+
+    def _loop_body(self, name: str, role: str, prompt: str):
         team_name = self.config["team_name"]
         sys_prompt = (f"You are '{name}', role: {role}, team: {team_name}, at {WORKDIR}. "
                       "Use idle when you have no more current work. "
@@ -1595,14 +1664,21 @@ class TeammateManager:
             for _ in range(TEAM_MAX_CONSECUTIVE_TURNS):
                 inbox = self.bus.read_inbox(name)
                 shutdown_now = False
+                inbox_payload = []
                 for msg in inbox:
                     if msg.get("type") == "shutdown_request":
                         shutdown_now = True
                         break
-                    messages.append({"role": "user", "content": json.dumps(msg)})
+                    inbox_payload.append(json.dumps(msg))
                 if shutdown_now:
                     self._set_status(name, "shutdown")
                     return
+                if inbox_payload:
+                    # Combine multiple inbox messages into a single user
+                    # entry to avoid consecutive {"role":"user"} entries.
+                    append_user_text(
+                        messages,
+                        "<inbox>\n" + "\n".join(inbox_payload) + "\n</inbox>")
                 try:
                     response = client.messages.create(
                         model=MODEL, system=sys_prompt, messages=messages,
@@ -1648,27 +1724,35 @@ class TeammateManager:
                 time.sleep(POLL_INTERVAL)
                 inbox = self.bus.read_inbox(name)
                 if inbox:
+                    payload = []
                     for msg in inbox:
                         if msg.get("type") == "shutdown_request":
                             self._set_status(name, "shutdown")
                             return
-                        messages.append({"role": "user", "content": json.dumps(msg)})
+                        payload.append(json.dumps(msg))
+                    if payload:
+                        append_user_text(
+                            messages,
+                            "<inbox>\n" + "\n".join(payload) + "\n</inbox>")
                     resume = True
                     break
-                # Auto-claim a pending task.
-                unclaimed = self.task_mgr.unclaimed()
-                if unclaimed:
-                    task = unclaimed[0]
-                    self.task_mgr.claim(task["id"], name)
+                # claim() races with peers; skip Error to the next candidate.
+                task = None
+                for candidate in self.task_mgr.unclaimed():
+                    if not self.task_mgr.claim(candidate["id"], name).startswith("Error:"):
+                        task = candidate
+                        break
+                if task:
                     if len(messages) <= 3:
                         # Identity re-injection after a compact.
                         messages.insert(0, {"role": "user", "content":
                             f"<identity>You are '{name}', role: {role}, team: {team_name}.</identity>"})
                         messages.insert(1, {"role": "assistant",
                                             "content": f"I am {name}. Continuing."})
-                    messages.append({"role": "user", "content":
+                    append_user_text(
+                        messages,
                         f"<auto-claimed>Task #{task['id']}: {task['subject']}\n"
-                        f"{task.get('description', '')}</auto-claimed>"})
+                        f"{task.get('description', '')}</auto-claimed>")
                     messages.append({"role": "assistant",
                                      "content": f"Claimed task #{task['id']}. Working on it."})
                     resume = True
@@ -1761,7 +1845,7 @@ TOOL_HANDLERS = {
     "task_update":      lambda **kw: TASK_MGR.update(
                                         kw["task_id"], kw.get("status"),
                                         kw.get("add_blocked_by"), kw.get("add_blocks"),
-                                        kw.get("worktree")),
+                                        kw.get("worktree"), actor="lead"),
     "task_list":        lambda **kw: TASK_MGR.list_all(),
     "save_memory":      lambda **kw: MEMORY.save(kw["name"], kw["description"],
                                                  kw["mem_type"], kw["content"]),
@@ -1788,10 +1872,6 @@ TOOL_HANDLERS = {
                                                         kw["approve"], kw.get("feedback", "")),
     "claim_task":       lambda **kw: TASK_MGR.claim(kw["task_id"], "lead"),
 }
-
-
-def _bool(default):
-    return {"type": "boolean", "default": default}
 
 
 TOOLS_BASE = [
@@ -1999,6 +2079,25 @@ def all_tools() -> list:
 CACHE_ENABLED = os.environ.get("MINICODE_CACHE", "1") != "0"
 
 
+def append_user_text(messages: list, text: str) -> None:
+    """Append `text` to the trailing user message (or start a new one).
+
+    Anthropic rejects two consecutive {"role":"user"} entries, so multiple
+    snippets drained in one iteration must be folded into one message.
+    """
+    if not text:
+        return
+    if messages and messages[-1].get("role") == "user":
+        prev = messages[-1]["content"]
+        if isinstance(prev, str):
+            messages[-1]["content"] = prev + "\n" + text
+            return
+        if isinstance(prev, list):
+            prev.append({"type": "text", "text": text})
+            return
+    messages.append({"role": "user", "content": text})
+
+
 def system_blocks_cached():
     """Return system as a list-of-blocks with the prefix cached."""
     text = build_system_prompt()
@@ -2040,13 +2139,11 @@ _PERMS_ASK_LOCK = threading.Lock()
 
 # === SECTION: agent_loop =========================================
 def execute_one_tool(block, hooks: HookManager, perms: PermissionManager) -> tuple:
-    """One pass through the tool pipeline:
-       hook PreToolUse -> permission -> handler -> hook PostToolUse.
+    """Run PreToolUse hook -> permission -> handler -> PostToolUse hook.
 
-    Returns (content, is_error). When is_error=True, the caller MUST mark the
-    tool_result with `is_error: true` so the model knows the call failed.
-    Without that flag, "Permission denied" looks like a normal success string
-    and the model is liable to hallucinate that the action happened.
+    Returns (content, is_error). The caller MUST forward `is_error=True`
+    into the tool_result, otherwise the model treats "Permission denied"
+    as a normal success string and may hallucinate the action happened.
     """
     tool_input = dict(block.input or {})
     context = {"tool_name": block.name, "tool_input": tool_input}
@@ -2111,26 +2208,23 @@ def agent_loop(messages: list):
             print("[auto-compact triggered]")
             messages[:] = auto_compact(messages)
 
-        # drain background notifications into the conversation.
+        # Collect all auto-injected context (BG / cron / inbox) into a
+        # single user message so we never produce consecutive {"role":"user"}.
+        injected = []
         notifs = BG.drain()
         if notifs:
-            txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}" for n in notifs)
-            messages.append({"role": "user",
-                             "content": f"<background-results>\n{txt}\n</background-results>"})
-            messages.append({"role": "assistant", "content": "Noted background results."})
-
-        # drain cron firings.
-        cron_msgs = CRON.drain()
-        for c in cron_msgs:
-            messages.append({"role": "user", "content":
+            txt = "\n".join(f"[bg:{n['task_id']}] {n['status']}: {n['result']}"
+                            for n in notifs)
+            injected.append(f"<background-results>\n{txt}\n</background-results>")
+        for c in CRON.drain():
+            injected.append(
                 f"<scheduled-trigger id='{c['task_id']}' cron='{c['cron']}' "
-                f"at='{c['fired_at']}'>\n{c['prompt']}\n</scheduled-trigger>"})
-
-        # pick up lead inbox.
+                f"at='{c['fired_at']}'>\n{c['prompt']}\n</scheduled-trigger>")
         inbox = BUS.read_inbox("lead")
         if inbox:
-            messages.append({"role": "user",
-                             "content": f"<inbox>{json.dumps(inbox, indent=2)}</inbox>"})
+            injected.append(f"<inbox>{json.dumps(inbox, indent=2)}</inbox>")
+        if injected:
+            append_user_text(messages, "\n".join(injected))
 
         # The actual model call -- streaming so text shows up as it arrives.
         # Cached system + tools cut TTFT on every turn after the first.
@@ -2172,6 +2266,10 @@ def agent_loop(messages: list):
             continue
 
         messages.append({"role": "assistant", "content": response.content})
+        # Warn when output was cut off so the user knows the reply is partial.
+        if response.stop_reason == "max_tokens":
+            print("[warning] response truncated (hit max_tokens); "
+                  "use /compact or ask the model to continue")
         if response.stop_reason != "tool_use":
             return
 
