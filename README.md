@@ -41,6 +41,7 @@ Type `/help` once the REPL/TUI is up to see every command. Common ones:
 |---|---|
 | `/mode <name>` | Permission mode: `default` / `plan` / `auto` / `yolo` |
 | `/tasks` `/team` `/memory` `/skills` | Show the corresponding state |
+| `/trust` | Mark workspace as trusted (required for hooks to fire) |
 | `/compact <focus>` | Manually compact the conversation context |
 | `/quit` | Exit |
 

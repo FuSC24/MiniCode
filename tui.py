@@ -569,16 +569,15 @@ class MiniCodeApp(App):
 
 
 # === SECTION: entrypoint =====================================================
-def main_entry() -> None:
+def run_app() -> None:
+    """Entry point for `python tui.py` and the `minicode-tui` console script.
+
+    Named `run_app` (not `main`) because we already `import main` at the top of
+    this file -- defining `def main()` here would shadow the harness module.
+    """
     app = MiniCodeApp(WORKDIR)
     app.run()
 
 
-# Keep both names working: `python tui.py` and `minicode-tui` script.
-main_func = main_entry  # alias
-def main_cli():  # for `[project.scripts] minicode-tui = "tui:main"`
-    main_entry()
-
-
 if __name__ == "__main__":
-    main_entry()
+    run_app()

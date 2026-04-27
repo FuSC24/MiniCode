@@ -11,4 +11,4 @@ dependencies = [
 
 [project.scripts]
 minicode = "main:repl"
-minicode-tui = "tui:main_cli"
+minicode-tui = "tui:run_app"

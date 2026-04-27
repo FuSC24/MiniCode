@@ -1,14 +1,6 @@
 #!/usr/bin/env python3
 # MiniCode - a complete, runnable coding-agent harness in one file.
-#
-# REPL slash commands: /help /tasks /team /inbox /memory /cron /worktree
-#                       /mcp /skills /mode /compact /quit
-#
-# Run:
-#   pip install anthropic python-dotenv
-#   echo "MODEL_ID=claude-sonnet-4-6" > .env
-#   echo "ANTHROPIC_API_KEY=sk-..." >> .env
-#   python main.py
+
 
 import json
 import os
@@ -36,7 +28,7 @@ if os.getenv("ANTHROPIC_BASE_URL"):
 
 WORKDIR = Path.cwd()
 client = Anthropic(base_url=os.getenv("ANTHROPIC_BASE_URL"))
-MODEL = os.environ.get("MODEL_ID", "claude-opus-4-5")
+MODEL = os.environ.get("MODEL_ID", "claude-opus-4-6")
 
 # Filesystem layout. Every directory is created lazily.
 STATE_DIR = WORKDIR / ".minicode"
@@ -52,7 +44,7 @@ MCP_DIR = STATE_DIR / "mcp"
 MEMORY_DIR = WORKDIR / ".memory"
 SKILLS_DIR = WORKDIR / "skills"
 HOOKS_FILE = WORKDIR / ".hooks.json"
-TRUST_MARKER = WORKDIR / ".minicode" / ".trusted"
+TRUST_MARKER = STATE_DIR / ".trusted"
 
 TOKEN_THRESHOLD = 100000
 PERSIST_TRIGGER_DEFAULT = 50000
@@ -143,7 +135,10 @@ class BashSecurityValidator:
 
     VALIDATORS = [
         ("sudo",          r"\bsudo\b"),
-        ("rm_rf_root",    r"\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*\s+)?/\s*$"),
+        # `rm -rf /` followed by end-of-string, whitespace, or a shell
+        # separator (`;` `&&` `||` `|`). Lookahead so chained forms like
+        # `rm -rf / && echo done` are still classified SEVERE.
+        ("rm_rf_root",    r"\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s+)?(-[a-zA-Z]*\s+)?/(?=\s|$|[;&|])"),
         ("rm_rf",         r"\brm\s+-[a-zA-Z]*r"),
         ("fork_bomb",     r":\(\)\s*\{"),
         ("dd_disk",       r"\bdd\b.*of=/dev/"),
@@ -173,7 +168,7 @@ bash_validator = BashSecurityValidator()
 PERM_MODES = ("default", "plan", "auto", "yolo")
 READ_ONLY_TOOLS = {"read_file", "task_list", "task_get", "list_teammates",
                    "list_skills", "list_memory", "list_mcp_tools",
-                   "list_worktrees", "list_cron", "read_inbox"}
+                   "list_worktrees", "schedule_list", "read_inbox"}
 WRITE_TOOLS = {"write_file", "edit_file", "bash"}
 
 
@@ -489,7 +484,7 @@ def run_bash(command: str, tool_use_id: str = "", timeout: int = 120) -> str:
         if not out:
             return f"(no output, exit={r.returncode})"
         out = maybe_persist_output(tool_use_id, out, trigger_chars=PERSIST_TRIGGER_BASH)
-        return out[:CONTEXT_TRUNCATE_CHARS] if isinstance(out, str) else str(out)[:CONTEXT_TRUNCATE_CHARS]
+        return out[:CONTEXT_TRUNCATE_CHARS]
     except subprocess.TimeoutExpired:
         return f"Error: bash timed out after {timeout}s"
     except Exception as e:
@@ -506,7 +501,7 @@ def run_read(path: str, tool_use_id: str = "", limit: int = None, offset: int = 
             sliced.append(f"... ({len(lines) - end} more)")
         out = "\n".join(f"{start + i + 1:6d}\t{ln}" for i, ln in enumerate(sliced))
         out = maybe_persist_output(tool_use_id, out)
-        return out[:CONTEXT_TRUNCATE_CHARS] if isinstance(out, str) else str(out)[:CONTEXT_TRUNCATE_CHARS]
+        return out[:CONTEXT_TRUNCATE_CHARS]
     except Exception as e:
         return f"Error: {e}"
 
@@ -983,10 +978,17 @@ def _cron_field(field: str, value: int, lo: int, hi: int) -> bool:
                 return True
         else:
             try:
-                if int(part) == value:
-                    return True
+                start = int(part)
             except ValueError:
                 return False
+            # `N` alone matches exact value; `N/M` means start at N then step
+            # by M up to hi (cron-style: e.g. `5/10` -> 5,15,25,35,45,55).
+            if step == 1:
+                if start == value:
+                    return True
+            else:
+                if start <= value <= hi and (value - start) % step == 0:
+                    return True
     return False
 
 
@@ -1159,7 +1161,9 @@ class WorktreeManager:
         self.INDEX_FILE.write_text(json.dumps(self.index, indent=2))
 
     def _is_git_repo(self) -> bool:
-        return (WORKDIR / ".git").exists() or (WORKDIR / ".git").is_file()
+        # `.git` is a directory in normal repos and a file in git worktrees.
+        # Path.exists() covers both.
+        return (WORKDIR / ".git").exists()
 
     def create(self, name: str, base: str = "HEAD") -> str:
         if not re.match(r"^[a-zA-Z0-9._-]+$", name):
@@ -1194,7 +1198,12 @@ class WorktreeManager:
         wt = next((w for w in self.index["worktrees"] if w["name"] == name), None)
         if not wt:
             return f"Worktree '{name}' not found"
-        path = WORKDIR / wt["path"]
+        # Re-resolve the recorded path through safe_path so a tampered index
+        # cannot trick us into deleting outside the workspace.
+        try:
+            path = safe_path(wt["path"])
+        except ValueError:
+            return f"Error: worktree path escapes workspace: {wt['path']}"
         if wt.get("kind") == "git" and self._is_git_repo():
             args = ["git", "worktree", "remove", str(path)]
             if force:
@@ -1205,7 +1214,10 @@ class WorktreeManager:
         else:
             try:
                 if path.exists():
-                    subprocess.run(["rm", "-rf", str(path)], cwd=WORKDIR, check=True)
+                    r = subprocess.run(["rm", "-rf", str(path)], cwd=WORKDIR,
+                                       capture_output=True, text=True)
+                    if r.returncode != 0:
+                        return f"Error removing dir lane: {r.stderr.strip()}"
             except Exception as e:
                 return f"Error removing dir lane: {e}"
         self.index["worktrees"] = [w for w in self.index["worktrees"] if w["name"] != name]
@@ -1322,7 +1334,16 @@ class MCPClient:
             deadline = time.time() + 30
             while time.time() < deadline:
                 line = self.proc.stdout.readline()
-                if not line:
+                # Empty string from readline means EOF -- the server closed
+                # its stdout (typically because it exited). Bail out instead
+                # of busy-spinning until the deadline.
+                if line == "":
+                    if self.proc.poll() is not None:
+                        print(f"  [mcp:{self.name}] server exited "
+                              f"(rc={self.proc.returncode}); aborting call")
+                        return None
+                    # Pipe quiet but server alive: wait a tick, don't spin.
+                    time.sleep(0.05)
                     continue
                 try:
                     msg = json.loads(line.strip())
