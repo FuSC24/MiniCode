@@ -379,9 +379,6 @@ class MiniCodeApp(App):
         main.HOOKS.run("SessionStart")
 
         log = self._log_widget
-        log.write(f"[bold green]MiniCode[/] @ {self.workdir}")
-        log.write(f"model: [cyan]{main.MODEL}[/]   "
-                  f"perm-mode: [cyan]{main.PERMS.mode}[/]")
         log.write("Type [bold]/help[/] for commands. "
                   "[dim]/mode yolo skips permission prompts (demo only).[/]")
         log.write("")

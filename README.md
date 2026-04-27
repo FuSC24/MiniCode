@@ -22,6 +22,8 @@ ln -s "$(pwd)/bin/minicode" ~/.local/bin/minicode
 
 ## 使用
 
+![MiniCode TUI](docs/tui.png)
+
 ```bash
 uv run python tui.py        # TUI 界面（推荐）
 uv run python main.py       # 纯文本 REPL
