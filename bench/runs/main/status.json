@@ -1,0 +1,422 @@
+{
+  "astropy__astropy-13398": {
+    "instance_id": "astropy__astropy-13398",
+    "patch_bytes": 4754,
+    "status": "done",
+    "wall_s": 484.52
+  },
+  "astropy__astropy-14508": {
+    "instance_id": "astropy__astropy-14508",
+    "patch_bytes": 1911,
+    "status": "done",
+    "wall_s": 356.48
+  },
+  "astropy__astropy-14539": {
+    "instance_id": "astropy__astropy-14539",
+    "patch_bytes": 672,
+    "status": "done",
+    "wall_s": 412.92
+  },
+  "astropy__astropy-14995": {
+    "instance_id": "astropy__astropy-14995",
+    "patch_bytes": 676,
+    "status": "done",
+    "wall_s": 473.79
+  },
+  "astropy__astropy-7166": {
+    "instance_id": "astropy__astropy-7166",
+    "patch_bytes": 1226,
+    "status": "done",
+    "wall_s": 66.83
+  },
+  "django__django-10097": {
+    "instance_id": "django__django-10097",
+    "patch_bytes": 599,
+    "status": "done",
+    "wall_s": 662.93
+  },
+  "django__django-11211": {
+    "instance_id": "django__django-11211",
+    "patch_bytes": 654,
+    "status": "done",
+    "wall_s": 537.48
+  },
+  "django__django-11292": {
+    "instance_id": "django__django-11292",
+    "patch_bytes": 868,
+    "status": "done",
+    "wall_s": 443.28
+  },
+  "django__django-11400": {
+    "instance_id": "django__django-11400",
+    "patch_bytes": 1469,
+    "status": "done",
+    "wall_s": 434.92
+  },
+  "django__django-11451": {
+    "instance_id": "django__django-11451",
+    "patch_bytes": 613,
+    "status": "done",
+    "wall_s": 25.66
+  },
+  "django__django-11532": {
+    "instance_id": "django__django-11532",
+    "patch_bytes": 1126,
+    "status": "done",
+    "wall_s": 75.19
+  },
+  "django__django-11734": {
+    "instance_id": "django__django-11734",
+    "patch_bytes": 0,
+    "status": "done",
+    "wall_s": 521.07
+  },
+  "django__django-11848": {
+    "instance_id": "django__django-11848",
+    "patch_bytes": 730,
+    "status": "done",
+    "wall_s": 67.41
+  },
+  "django__django-12125": {
+    "instance_id": "django__django-12125",
+    "patch_bytes": 3754,
+    "status": "done",
+    "wall_s": 791.19
+  },
+  "django__django-12304": {
+    "instance_id": "django__django-12304",
+    "patch_bytes": 631,
+    "status": "done",
+    "wall_s": 160.22
+  },
+  "django__django-12325": {
+    "instance_id": "django__django-12325",
+    "patch_bytes": 914,
+    "status": "done",
+    "wall_s": 176.6
+  },
+  "django__django-13158": {
+    "instance_id": "django__django-13158",
+    "patch_bytes": 734,
+    "status": "done",
+    "wall_s": 396.48
+  },
+  "django__django-13363": {
+    "instance_id": "django__django-13363",
+    "patch_bytes": 1063,
+    "status": "done",
+    "wall_s": 83.36
+  },
+  "django__django-13401": {
+    "instance_id": "django__django-13401",
+    "patch_bytes": 2085,
+    "status": "done",
+    "wall_s": 274.27
+  },
+  "django__django-13406": {
+    "instance_id": "django__django-13406",
+    "patch_bytes": 471,
+    "status": "done",
+    "wall_s": 435.62
+  },
+  "django__django-13417": {
+    "instance_id": "django__django-13417",
+    "patch_bytes": 517,
+    "status": "done",
+    "wall_s": 372.97
+  },
+  "django__django-13551": {
+    "instance_id": "django__django-13551",
+    "patch_bytes": 1299,
+    "status": "done",
+    "wall_s": 99.29
+  },
+  "django__django-13741": {
+    "instance_id": "django__django-13741",
+    "patch_bytes": 980,
+    "status": "done",
+    "wall_s": 153.19
+  },
+  "django__django-13933": {
+    "instance_id": "django__django-13933",
+    "patch_bytes": 1146,
+    "status": "done",
+    "wall_s": 354.85
+  },
+  "django__django-14034": {
+    "instance_id": "django__django-14034",
+    "patch_bytes": 634,
+    "status": "done",
+    "wall_s": 148.55
+  },
+  "django__django-14089": {
+    "instance_id": "django__django-14089",
+    "patch_bytes": 422,
+    "status": "done",
+    "wall_s": 28.76
+  },
+  "django__django-14349": {
+    "instance_id": "django__django-14349",
+    "patch_bytes": 811,
+    "status": "done",
+    "wall_s": 258.89
+  },
+  "django__django-14915": {
+    "instance_id": "django__django-14915",
+    "patch_bytes": 404,
+    "status": "done",
+    "wall_s": 30.95
+  },
+  "django__django-15022": {
+    "instance_id": "django__django-15022",
+    "patch_bytes": 1244,
+    "status": "done",
+    "wall_s": 525.23
+  },
+  "django__django-15098": {
+    "instance_id": "django__django-15098",
+    "patch_bytes": 474,
+    "status": "done",
+    "wall_s": 110.02
+  },
+  "django__django-15268": {
+    "instance_id": "django__django-15268",
+    "patch_bytes": 838,
+    "status": "done",
+    "wall_s": 346.48
+  },
+  "django__django-15499": {
+    "instance_id": "django__django-15499",
+    "patch_bytes": 939,
+    "status": "done",
+    "wall_s": 305.21
+  },
+  "django__django-15503": {
+    "instance_id": "django__django-15503",
+    "patch_bytes": 5110,
+    "status": "done",
+    "wall_s": 653.33
+  },
+  "django__django-16032": {
+    "instance_id": "django__django-16032",
+    "patch_bytes": 558,
+    "status": "done",
+    "wall_s": 850.56
+  },
+  "django__django-16100": {
+    "instance_id": "django__django-16100",
+    "patch_bytes": 3052,
+    "status": "done",
+    "wall_s": 101.33
+  },
+  "django__django-16493": {
+    "instance_id": "django__django-16493",
+    "patch_bytes": 780,
+    "status": "done",
+    "wall_s": 181.4
+  },
+  "django__django-16612": {
+    "instance_id": "django__django-16612",
+    "patch_bytes": 756,
+    "status": "done",
+    "wall_s": 25.17
+  },
+  "matplotlib__matplotlib-20859": {
+    "instance_id": "matplotlib__matplotlib-20859",
+    "patch_bytes": 769,
+    "status": "done",
+    "wall_s": 425.46
+  },
+  "matplotlib__matplotlib-24970": {
+    "instance_id": "matplotlib__matplotlib-24970",
+    "patch_bytes": 700,
+    "status": "done",
+    "wall_s": 766.06
+  },
+  "matplotlib__matplotlib-25479": {
+    "instance_id": "matplotlib__matplotlib-25479",
+    "patch_bytes": 531,
+    "status": "done",
+    "wall_s": 798.53
+  },
+  "matplotlib__matplotlib-26113": {
+    "instance_id": "matplotlib__matplotlib-26113",
+    "patch_bytes": 631,
+    "status": "done",
+    "wall_s": 30.98
+  },
+  "mwaskom__seaborn-3069": {
+    "instance_id": "mwaskom__seaborn-3069",
+    "patch_bytes": 2301,
+    "status": "done",
+    "wall_s": 718.44
+  },
+  "pydata__xarray-3305": {
+    "instance_id": "pydata__xarray-3305",
+    "patch_bytes": 793,
+    "status": "done",
+    "wall_s": 190.25
+  },
+  "pydata__xarray-3677": {
+    "instance_id": "pydata__xarray-3677",
+    "patch_bytes": 942,
+    "status": "done",
+    "wall_s": 105.14
+  },
+  "pydata__xarray-4687": {
+    "instance_id": "pydata__xarray-4687",
+    "patch_bytes": 328,
+    "status": "done",
+    "wall_s": 345.66
+  },
+  "pydata__xarray-4695": {
+    "instance_id": "pydata__xarray-4695",
+    "patch_bytes": 567,
+    "status": "done",
+    "wall_s": 373.17
+  },
+  "pydata__xarray-6992": {
+    "instance_id": "pydata__xarray-6992",
+    "patch_bytes": 477,
+    "status": "done",
+    "wall_s": 171.81
+  },
+  "pylint-dev__pylint-4604": {
+    "instance_id": "pylint-dev__pylint-4604",
+    "patch_bytes": 726,
+    "status": "done",
+    "wall_s": 401.82
+  },
+  "pylint-dev__pylint-7080": {
+    "instance_id": "pylint-dev__pylint-7080",
+    "patch_bytes": 746,
+    "status": "done",
+    "wall_s": 464.2
+  },
+  "pytest-dev__pytest-10356": {
+    "instance_id": "pytest-dev__pytest-10356",
+    "patch_bytes": 1314,
+    "status": "done",
+    "wall_s": 224.62
+  },
+  "pytest-dev__pytest-7571": {
+    "instance_id": "pytest-dev__pytest-7571",
+    "patch_bytes": 1288,
+    "status": "done",
+    "wall_s": 346.06
+  },
+  "scikit-learn__scikit-learn-13124": {
+    "instance_id": "scikit-learn__scikit-learn-13124",
+    "patch_bytes": 1265,
+    "status": "done",
+    "wall_s": 783.5
+  },
+  "scikit-learn__scikit-learn-13142": {
+    "instance_id": "scikit-learn__scikit-learn-13142",
+    "patch_bytes": 1069,
+    "status": "done",
+    "wall_s": 216.25
+  },
+  "scikit-learn__scikit-learn-14141": {
+    "instance_id": "scikit-learn__scikit-learn-14141",
+    "patch_bytes": 350,
+    "status": "done",
+    "wall_s": 26.16
+  },
+  "scikit-learn__scikit-learn-25102": {
+    "instance_id": "scikit-learn__scikit-learn-25102",
+    "patch_bytes": 1898,
+    "status": "done",
+    "wall_s": 457.97
+  },
+  "scikit-learn__scikit-learn-25973": {
+    "instance_id": "scikit-learn__scikit-learn-25973",
+    "patch_bytes": 1006,
+    "status": "done",
+    "wall_s": 398.06
+  },
+  "scikit-learn__scikit-learn-26323": {
+    "instance_id": "scikit-learn__scikit-learn-26323",
+    "patch_bytes": 963,
+    "status": "done",
+    "wall_s": 289.82
+  },
+  "sphinx-doc__sphinx-11510": {
+    "instance_id": "sphinx-doc__sphinx-11510",
+    "patch_bytes": 3001,
+    "status": "done",
+    "wall_s": 785.5
+  },
+  "sphinx-doc__sphinx-7454": {
+    "instance_id": "sphinx-doc__sphinx-7454",
+    "patch_bytes": 0,
+    "status": "done",
+    "wall_s": 855.74
+  },
+  "sphinx-doc__sphinx-9229": {
+    "instance_id": "sphinx-doc__sphinx-9229",
+    "patch_bytes": 388,
+    "status": "done",
+    "wall_s": 715.71
+  },
+  "sphinx-doc__sphinx-9230": {
+    "instance_id": "sphinx-doc__sphinx-9230",
+    "patch_bytes": 2065,
+    "status": "done",
+    "wall_s": 569.0
+  },
+  "sphinx-doc__sphinx-9258": {
+    "instance_id": "sphinx-doc__sphinx-9258",
+    "patch_bytes": 3323,
+    "status": "done",
+    "wall_s": 542.1
+  },
+  "sphinx-doc__sphinx-9711": {
+    "instance_id": "sphinx-doc__sphinx-9711",
+    "patch_bytes": 2144,
+    "status": "done",
+    "wall_s": 64.87
+  },
+  "sympy__sympy-13480": {
+    "instance_id": "sympy__sympy-13480",
+    "patch_bytes": 592,
+    "status": "done",
+    "wall_s": 144.02
+  },
+  "sympy__sympy-14711": {
+    "instance_id": "sympy__sympy-14711",
+    "patch_bytes": 655,
+    "status": "done",
+    "wall_s": 300.82
+  },
+  "sympy__sympy-15976": {
+    "instance_id": "sympy__sympy-15976",
+    "patch_bytes": 0,
+    "status": "done",
+    "wall_s": 365.95
+  },
+  "sympy__sympy-16766": {
+    "instance_id": "sympy__sympy-16766",
+    "patch_bytes": 711,
+    "status": "done",
+    "wall_s": 59.0
+  },
+  "sympy__sympy-19783": {
+    "instance_id": "sympy__sympy-19783",
+    "patch_bytes": 1307,
+    "status": "done",
+    "wall_s": 255.36
+  },
+  "sympy__sympy-23413": {
+    "instance_id": "sympy__sympy-23413",
+    "patch_bytes": 0,
+    "status": "done",
+    "wall_s": 91.1
+  },
+  "sympy__sympy-24562": {
+    "instance_id": "sympy__sympy-24562",
+    "patch_bytes": 0,
+    "status": "done",
+    "wall_s": 14.92
+  }
+}
