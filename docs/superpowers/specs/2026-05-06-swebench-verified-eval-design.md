@@ -52,7 +52,6 @@
 bench/
   swebench_run.py            # 主驱动脚本
   sample_70.txt              # 70 个 instance_id（固定）
-  pricing.json               # {input, output, cache_write, cache_read}，¥/M tokens
   repo_cache/<owner>__<repo>/   # 每个 repo 克隆一次，缓存
   workspaces/<instance_id>/  # 每个 case 独立 workspace（基于缓存复制 + checkout）
   runs/<run_id>/
@@ -60,7 +59,7 @@ bench/
     usage/<instance_id>.json # 单 case token 计数（minicode 写）
     logs/<instance_id>.log   # minicode stdout/stderr
     status.json              # {instance_id: "done"|"failed"|"timeout"}
-    cost_report.json         # 70 个 case 汇总的 token 与按 pricing.json 折算的金额
+    token_report.json        # 70 个 case 的 token 汇总
 ```
 
 ## 5. 单 case 流程
@@ -148,9 +147,9 @@ sb-cli get-report swe-bench-verified <run_id>
 
 报告里 `resolved` / `total` 即为最终性能数。注意 sb-cli 是按全 500 算总数还是按提交的子集算 — 看到报告再确认；我们关心的是"我们提交的 70 条里 resolved 多少"。
 
-## 9.5 Token cost 汇总
+## 9.5 Token 汇总
 
-跑完后 `swebench_run.py --report` 读取 `runs/<run_id>/usage/*.json` + `pricing.json`，输出 `cost_report.json`：
+跑完后 `swebench_run.py --report` 读取 `runs/<run_id>/usage/*.json`，输出 `token_report.json`：
 
 ```
 {
@@ -158,32 +157,23 @@ sb-cli get-report swe-bench-verified <run_id>
   "n_cases": 70,
   "n_completed": 68,
   "totals": {
-    "input_tokens": 3120000, "output_tokens": 210000,
+    "input_tokens": 3120000,
+    "output_tokens": 210000,
     "cache_creation_input_tokens": 480000,
-    "cache_read_input_tokens": 2700000
+    "cache_read_input_tokens": 2700000,
+    "turns": 712,
+    "wall_s": 9824.5
   },
-  "totals_cny": 142.30,
   "per_case": [
-    {"instance_id": "...", "input_tokens": 45230, ..., "cny": 1.82, "turns": 12, "wall_s": 187.4},
+    {"instance_id": "...", "input_tokens": 45230, "output_tokens": 3120,
+     "cache_creation_input_tokens": 8200, "cache_read_input_tokens": 38900,
+     "turns": 12, "wall_s": 187.4},
     ...
   ]
 }
 ```
 
-`pricing.json` 由用户填，单位 ¥/M tokens（cache_read 通常是 input 的 0.1 倍）：
-
-```
-{"input": 4.0, "output": 16.0, "cache_write": 5.0, "cache_read": 0.4}
-```
-
-成本公式（Anthropic SDK 里 `input_tokens` 已不含 cache 读/写部分，无需扣减）：
-
-```
-cost = input_tokens          * input
-     + cache_creation_tokens * cache_write
-     + cache_read_tokens     * cache_read
-     + output_tokens         * output
-```
+终端打印：`total in/out/cache_w/cache_r tokens, mean per case, completed N/70`。不做金额折算。
 
 终端打印：`total ¥X.YZ, mean ¥A.BC/case, completed N/70`。
 
