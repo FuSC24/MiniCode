@@ -210,9 +210,76 @@ def cmd_prepare(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_status(run_dir: Path) -> dict:
+    p = run_dir / "status.json"
+    if p.exists():
+        return json.loads(p.read_text())
+    return {}
+
+
+def _write_status(run_dir: Path, status: dict) -> None:
+    (run_dir / "status.json").write_text(json.dumps(status, indent=2,
+                                                     sort_keys=True))
+
+
+def _run_one_safe(row, run_dir_str, max_turns, timeout, model_label):
+    """Top-level wrapper for ProcessPoolExecutor (must be picklable)."""
+    try:
+        return run_one_case(row, Path(run_dir_str), max_turns, timeout,
+                            model_label)
+    except Exception as e:
+        return {"instance_id": row["instance_id"], "status": "crashed",
+                "error": repr(e)}
+
+
 def cmd_run(args: argparse.Namespace) -> int:
-    print("not implemented yet")
-    return 1
+    if not SAMPLE_FILE.exists():
+        print(f"error: {SAMPLE_FILE} missing -- run `prepare` first",
+              file=sys.stderr)
+        return 2
+    ids = [s.strip() for s in SAMPLE_FILE.read_text().splitlines() if s.strip()]
+    print(f"loaded {len(ids)} instance ids")
+
+    ds = _load_dataset()
+    by_id = {r["instance_id"]: r for r in ds}
+    rows = [by_id[i] for i in ids if i in by_id]
+    missing = [i for i in ids if i not in by_id]
+    if missing:
+        print(f"warning: {len(missing)} ids not in dataset (skipped): "
+              f"{missing[:3]}...")
+
+    run_dir = RUNS_DIR / args.run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    status = _read_status(run_dir)
+    todo = [r for r in rows if status.get(r["instance_id"], {}).get("status")
+            != "done"]
+    print(f"resuming: {len(rows) - len(todo)} done, {len(todo)} to run")
+
+    model_label = f"minicode-{os.environ.get('MODEL_ID', 'unknown')}"
+
+    with ProcessPoolExecutor(max_workers=args.workers) as pool:
+        futures = {
+            pool.submit(_run_one_safe, r, str(run_dir), args.max_turns,
+                        args.timeout, model_label): r["instance_id"]
+            for r in todo
+        }
+        for fut in as_completed(futures):
+            iid = futures[fut]
+            try:
+                result = fut.result()
+            except Exception as e:
+                result = {"instance_id": iid, "status": "crashed",
+                          "error": repr(e)}
+            status[iid] = result
+            _write_status(run_dir, status)
+            print(f"[{result['status']}] {iid} "
+                  f"patch={result.get('patch_bytes', 0)}B "
+                  f"wall={result.get('wall_s', '?')}s")
+
+    n_done = sum(1 for v in status.values() if v.get("status") == "done")
+    print(f"\ncompleted {n_done}/{len(rows)}")
+    print(f"predictions: {run_dir / 'predictions.jsonl'}")
+    return 0
 
 
 def cmd_report(args: argparse.Namespace) -> int:
