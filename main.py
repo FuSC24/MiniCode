@@ -2251,6 +2251,16 @@ def agent_loop(messages: list):
             sys.stdout.write("\n")
             sys.stdout.flush()
             consecutive_errors = 0
+            if _BATCH is not None:
+                u = getattr(response, "usage", None)
+                if u is not None:
+                    _BATCH["input_tokens"] += getattr(u, "input_tokens", 0) or 0
+                    _BATCH["output_tokens"] += getattr(u, "output_tokens", 0) or 0
+                    _BATCH["cache_creation_input_tokens"] += (
+                        getattr(u, "cache_creation_input_tokens", 0) or 0)
+                    _BATCH["cache_read_input_tokens"] += (
+                        getattr(u, "cache_read_input_tokens", 0) or 0)
+                _BATCH["turns"] += 1
         except Exception as e:
             # If the proxy rejects cache_control with a 4xx, fall back once.
             if CACHE_ENABLED and "cache_control" in str(e).lower():
@@ -2272,6 +2282,13 @@ def agent_loop(messages: list):
                   "use /compact or ask the model to continue")
         if response.stop_reason != "tool_use":
             return
+
+        # --max-turns hard cap (batch mode only).
+        if _BATCH is not None and _BATCH.get("max_turns"):
+            if _BATCH["turns"] >= _BATCH["max_turns"]:
+                _BATCH["stop_reason"] = "max_turns"
+                print(f"[batch] hit --max-turns ({_BATCH['max_turns']}); stopping")
+                return
 
         # Collect all tool_use blocks, classify, then dispatch.
         tool_blocks = [b for b in response.content if b.type == "tool_use"]
