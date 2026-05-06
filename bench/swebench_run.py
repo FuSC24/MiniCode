@@ -18,8 +18,11 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BENCH_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BENCH_DIR.parent
+load_dotenv(PROJECT_ROOT / ".env")
 SAMPLE_FILE = BENCH_DIR / "sample_70.txt"
 REPO_CACHE = BENCH_DIR / "repo_cache"
 WORKSPACES = BENCH_DIR / "workspaces"
