@@ -34,6 +34,30 @@ def _load_dataset():
     return load_dataset(DATASET_NAME, split=DATASET_SPLIT)
 
 
+EXCLUDE_PATHSPEC = [
+    ":!.minicode",
+    ":!.memory",
+    ":!prompt.txt",
+]
+
+
+def _git(cwd: Path, *args: str, check: bool = True,
+         capture: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["git", "-C", str(cwd), *args],
+        check=check, capture_output=capture, text=True,
+    )
+
+
+def extract_patch(repo_path: Path) -> str:
+    """Return unified diff of all changes in repo_path, including untracked
+    files, excluding minicode-internal paths. Leaves workspace unstaged."""
+    _git(repo_path, "add", "-A", "--", *EXCLUDE_PATHSPEC)
+    diff = _git(repo_path, "diff", "--cached", "HEAD").stdout
+    _git(repo_path, "reset", "-q")
+    return diff
+
+
 def cmd_prepare(args: argparse.Namespace) -> int:
     ds = _load_dataset()
     rng = random.Random(args.seed)

@@ -13,3 +13,8 @@ dependencies = [
 [project.scripts]
 minicode = "main:repl"
 minicode-tui = "tui:run_app"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
