@@ -282,9 +282,59 @@ def cmd_run(args: argparse.Namespace) -> int:
     return 0
 
 
+USAGE_KEYS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+
+
 def cmd_report(args: argparse.Namespace) -> int:
-    print("not implemented yet")
-    return 1
+    run_dir = RUNS_DIR / args.run_id
+    usage_dir = run_dir / "usage"
+    if not usage_dir.exists():
+        print(f"error: {usage_dir} missing", file=sys.stderr)
+        return 2
+
+    per_case = []
+    totals = {k: 0 for k in USAGE_KEYS}
+    totals["turns"] = 0
+    totals["wall_s"] = 0.0
+    n_completed = 0
+
+    for f in sorted(usage_dir.glob("*.json")):
+        d = json.loads(f.read_text())
+        iid = f.stem
+        per_case.append({"instance_id": iid, **{k: d.get(k, 0)
+                                                for k in USAGE_KEYS},
+                         "turns": d.get("turns", 0),
+                         "wall_s": d.get("wall_clock_seconds", 0.0),
+                         "stop_reason": d.get("stop_reason")})
+        for k in USAGE_KEYS:
+            totals[k] += d.get(k, 0) or 0
+        totals["turns"] += d.get("turns", 0) or 0
+        totals["wall_s"] += d.get("wall_clock_seconds", 0.0) or 0.0
+        if d.get("stop_reason") == "end_turn":
+            n_completed += 1
+
+    report = {
+        "run_id": args.run_id,
+        "model": os.environ.get("MODEL_ID", "unknown"),
+        "n_cases": len(per_case),
+        "n_completed": n_completed,
+        "totals": totals,
+        "per_case": per_case,
+    }
+    out = run_dir / "token_report.json"
+    out.write_text(json.dumps(report, indent=2))
+    print(f"wrote {out}")
+    print(f"completed {n_completed}/{len(per_case)} | "
+          f"in={totals['input_tokens']} out={totals['output_tokens']} "
+          f"cache_w={totals['cache_creation_input_tokens']} "
+          f"cache_r={totals['cache_read_input_tokens']} "
+          f"turns={totals['turns']} wall={totals['wall_s']:.0f}s")
+    return 0
 
 
 def main() -> int:
