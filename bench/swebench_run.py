@@ -58,6 +58,53 @@ def extract_patch(repo_path: Path) -> str:
     return diff
 
 
+def _ensure_clone(slug: str, clone_url: str) -> Path:
+    """Idempotently clone <slug> into REPO_CACHE/<slug>."""
+    target = REPO_CACHE / slug.replace("/", "__")
+    if target.exists():
+        return target
+    REPO_CACHE.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "clone", "--quiet", clone_url, str(target)],
+        check=True,
+    )
+    return target
+
+
+def prepare_workspace(repo_slug: str, base_commit: str, instance_id: str,
+                      clone_url: str | None = None) -> Path:
+    """Return a workspace path checked out at base_commit. Idempotent."""
+    if clone_url is None:
+        clone_url = f"https://github.com/{repo_slug}.git"
+    cache = _ensure_clone(repo_slug, clone_url)
+
+    # Make sure the cache has the requested commit (it might be a recent push).
+    have = subprocess.run(
+        ["git", "-C", str(cache), "cat-file", "-e", base_commit + "^{commit}"],
+        capture_output=True,
+    )
+    if have.returncode != 0:
+        subprocess.run(["git", "-C", str(cache), "fetch", "--quiet", "origin"],
+                       check=True)
+
+    ws = WORKSPACES / instance_id
+    if ws.exists():
+        head = _git(ws, "rev-parse", "HEAD").stdout.strip()
+        if head == base_commit:
+            # already at right commit; reset working tree to clean state
+            _git(ws, "reset", "--hard", "-q", base_commit)
+            _git(ws, "clean", "-fdq", "--", *EXCLUDE_PATHSPEC, ":(exclude).git")
+            return ws
+        # wrong commit: nuke and recreate
+        _git(cache, "worktree", "remove", "--force", str(ws), check=False)
+        if ws.exists():
+            shutil.rmtree(ws)
+
+    WORKSPACES.mkdir(parents=True, exist_ok=True)
+    _git(cache, "worktree", "add", "--detach", "-f", str(ws), base_commit)
+    return ws
+
+
 def cmd_prepare(args: argparse.Namespace) -> int:
     ds = _load_dataset()
     rng = random.Random(args.seed)
