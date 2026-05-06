@@ -34,6 +34,16 @@
 - `--mode yolo` 仍然有效，给 batch 用。
 - 退出码：正常 0；超 turn/异常 非 0。
 
+**Usage 上报**：当前 `agent_loop` 没有累计 token。在 `--prompt` 路径里，每轮 `stream.get_final_message()` 拿到 `response.usage`，累加 `input_tokens` / `output_tokens` / `cache_creation_input_tokens` / `cache_read_input_tokens`，退出时写到 `--usage-out <path>` 指定的 JSON 文件：
+
+```
+{"turns": 12, "input_tokens": 45230, "output_tokens": 3120,
+ "cache_creation_input_tokens": 8200, "cache_read_input_tokens": 38900,
+ "wall_clock_seconds": 187.4, "stop_reason": "end_turn"}
+```
+
+只在 `--prompt` 路径开启，REPL/TUI 完全不动。
+
 不动 TUI；不动 REPL。
 
 ## 4. 评测 harness 布局
@@ -42,12 +52,15 @@
 bench/
   swebench_run.py            # 主驱动脚本
   sample_70.txt              # 70 个 instance_id（固定）
+  pricing.json               # {input, output, cache_write, cache_read}，¥/M tokens
   repo_cache/<owner>__<repo>/   # 每个 repo 克隆一次，缓存
   workspaces/<instance_id>/  # 每个 case 独立 workspace（基于缓存复制 + checkout）
   runs/<run_id>/
     predictions.jsonl        # 每行 {instance_id, model_name_or_path, model_patch}
+    usage/<instance_id>.json # 单 case token 计数（minicode 写）
     logs/<instance_id>.log   # minicode stdout/stderr
     status.json              # {instance_id: "done"|"failed"|"timeout"}
+    cost_report.json         # 70 个 case 汇总的 token 与按 pricing.json 折算的金额
 ```
 
 ## 5. 单 case 流程
@@ -61,6 +74,7 @@ for instance in sample_70:
         minicode --prompt-file prompt.txt
                  --mode yolo
                  --max-turns 60
+                 --usage-out runs/<run_id>/usage/<instance_id>.json
                  <repo_path>
         timeout=1800s
     patch = git -C <repo_path> diff                      # 排除 .minicode/ .memory/
@@ -134,6 +148,45 @@ sb-cli get-report swe-bench-verified <run_id>
 
 报告里 `resolved` / `total` 即为最终性能数。注意 sb-cli 是按全 500 算总数还是按提交的子集算 — 看到报告再确认；我们关心的是"我们提交的 70 条里 resolved 多少"。
 
+## 9.5 Token cost 汇总
+
+跑完后 `swebench_run.py --report` 读取 `runs/<run_id>/usage/*.json` + `pricing.json`，输出 `cost_report.json`：
+
+```
+{
+  "model": "glm-5.1",
+  "n_cases": 70,
+  "n_completed": 68,
+  "totals": {
+    "input_tokens": 3120000, "output_tokens": 210000,
+    "cache_creation_input_tokens": 480000,
+    "cache_read_input_tokens": 2700000
+  },
+  "totals_cny": 142.30,
+  "per_case": [
+    {"instance_id": "...", "input_tokens": 45230, ..., "cny": 1.82, "turns": 12, "wall_s": 187.4},
+    ...
+  ]
+}
+```
+
+`pricing.json` 由用户填，单位 ¥/M tokens（cache_read 通常是 input 的 0.1 倍）：
+
+```
+{"input": 4.0, "output": 16.0, "cache_write": 5.0, "cache_read": 0.4}
+```
+
+成本公式（Anthropic SDK 里 `input_tokens` 已不含 cache 读/写部分，无需扣减）：
+
+```
+cost = input_tokens          * input
+     + cache_creation_tokens * cache_write
+     + cache_read_tokens     * cache_read
+     + output_tokens         * output
+```
+
+终端打印：`total ¥X.YZ, mean ¥A.BC/case, completed N/70`。
+
 ## 10. 输出
 
 - `bench/runs/<run_id>/predictions.jsonl` — 提交给 sb-cli 用。
@@ -152,5 +205,5 @@ sb-cli get-report swe-bench-verified <run_id>
 ## 12. 不在范围内
 
 - 不调超参 / 多 sample / self-consistency。
-- 不评估 token cost、不做 cost report（如需事后从日志统计）。
 - 不写 CI / 不做长期回归基础设施 — 这是一次性测量。
+- 不在 minicode 主路径（REPL/TUI）暴露 usage 显示；只在 `--prompt` 批跑时记录到文件。
