@@ -17,8 +17,6 @@ from fnmatch import fnmatch
 from pathlib import Path
 from queue import Queue, Empty
 
-from anthropic import Anthropic
-
 # === SECTION: bootstrap ===
 from minicode.config import (
     WORKDIR, client, MODEL,
