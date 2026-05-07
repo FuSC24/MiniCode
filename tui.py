@@ -55,7 +55,21 @@ def _resolve_workdir() -> Path:
 
 
 WORKDIR = _resolve_workdir()
-import main  # noqa: E402  -- must come after chdir so WORKDIR resolves correctly
+# Imports must come after chdir() so WORKDIR resolves correctly.
+import json  # noqa: E402
+
+from minicode.config import MODEL, STATE_DIR, TRUST_MARKER  # noqa: E402
+from minicode.security import PERMS, PERM_MODES  # noqa: E402
+from minicode.hooks import HOOKS  # noqa: E402
+from minicode.memory import MEMORY  # noqa: E402
+from minicode.skills import SKILLS  # noqa: E402
+from minicode.tasks import TASK_MGR, BG  # noqa: E402
+from minicode.scheduling import CRON  # noqa: E402
+from minicode.worktree import WORKTREES  # noqa: E402
+from minicode.mcp import MCP  # noqa: E402
+from minicode.team import BUS, TEAM  # noqa: E402
+from minicode.compression import auto_compact  # noqa: E402
+from minicode.loop import agent_loop  # noqa: E402
 
 
 # === SECTION: stdout capture =================================================
@@ -145,18 +159,18 @@ class _SidePanel(Static):
 
     def refresh_panel(self) -> None:
         try:
-            tasks = main.TASK_MGR.list_all()
+            tasks = TASK_MGR.list_all()
         except Exception as e:
             tasks = f"(tasks error: {e})"
         try:
-            team = main.TEAM.list_all()
+            team = TEAM.list_all()
         except Exception as e:
             team = f"(team error: {e})"
         try:
-            cron = main.CRON.list_tasks()
+            cron = CRON.list_tasks()
         except Exception as e:
             cron = f"(cron error: {e})"
-        bg = main.BG.check() if main.BG.tasks else "No background tasks."
+        bg = BG.check() if BG.tasks else "No background tasks."
         text = (
             "[bold yellow]TASKS[/]\n"
             f"{tasks}\n\n"
@@ -347,29 +361,29 @@ class MiniCodeApp(App):
                 answer["value"] = result
                 event.set()
 
-            preview = main.json.dumps(tool_input, ensure_ascii=False)[:600]
+            preview = json.dumps(tool_input, ensure_ascii=False)[:600]
             self.call_from_thread(self._show_permission_modal,
                                   tool_name, preview, on_decided)
             event.wait()
             decision = answer["value"]
             if decision == "always":
-                main.PERMS.rules.append(
+                PERMS.rules.append(
                     {"tool": tool_name, "path": "*", "behavior": "allow"})
                 return True
             return decision == "y"
 
-        main.PERMS.ask_user = tui_ask  # type: ignore[assignment]
+        PERMS.ask_user = tui_ask  # type: ignore[assignment]
 
         # Redirect stdout so all main.py print() calls land in our log.
         self._stdout_cap = _StreamCapture(self)
         sys.stdout = self._stdout_cap
 
         # Initial harness setup, the same things repl() does.
-        main.STATE_DIR.mkdir(parents=True, exist_ok=True)
-        main.MEMORY.load_all()
-        main.CRON.start()
-        main.MCP.start()
-        main.HOOKS.run("SessionStart")
+        STATE_DIR.mkdir(parents=True, exist_ok=True)
+        MEMORY.load_all()
+        CRON.start()
+        MCP.start()
+        HOOKS.run("SessionStart")
 
         log = self._log_widget
         log.write("Type [bold]/help[/] for commands. "
@@ -382,23 +396,23 @@ class MiniCodeApp(App):
         if self._stdout_cap is not None:
             sys.stdout = sys.__stdout__
         try:
-            main.HOOKS.run("SessionEnd")
+            HOOKS.run("SessionEnd")
         except Exception:
             pass
-        main.CRON.stop()
-        main.MCP.stop()
+        CRON.stop()
+        MCP.stop()
 
     # ---- helpers --------------------------------------------------------
     def _status_text(self) -> str:
         busy = "[red]● busy[/]" if self._busy else "[green]● idle[/]"
         return (f" [bold green]MiniCode[/]  [dim]·[/]  [cyan]{self.workdir}[/]  "
-                f"[dim]·[/]  model [cyan]{main.MODEL}[/]  "
+                f"[dim]·[/]  model [cyan]{MODEL}[/]  "
                 f"[dim]·[/]  {busy}")
 
     def _input_hint_text(self) -> str:
         return (f"[dim]/help for shortcuts  ·  "
                 f"enter to send  ·  "
-                f"mode [/][yellow]{main.PERMS.mode}[/]")
+                f"mode [/][yellow]{PERMS.mode}[/]")
 
     def _refresh_status(self) -> None:
         self.query_one("#status", Static).update(self._status_text())
@@ -497,38 +511,38 @@ class MiniCodeApp(App):
         elif cmd == "/clear":
             self.action_clear_log()
         elif cmd == "/tasks":
-            self._log_widget.write(main.TASK_MGR.list_all())
+            self._log_widget.write(TASK_MGR.list_all())
         elif cmd == "/team":
-            self._log_widget.write(main.TEAM.list_all())
+            self._log_widget.write(TEAM.list_all())
         elif cmd == "/memory":
-            self._log_widget.write(main.MEMORY.list_all())
+            self._log_widget.write(MEMORY.list_all())
         elif cmd == "/cron":
-            self._log_widget.write(main.CRON.list_tasks())
+            self._log_widget.write(CRON.list_tasks())
         elif cmd == "/worktree":
-            self._log_widget.write(main.WORKTREES.list_all())
+            self._log_widget.write(WORKTREES.list_all())
         elif cmd == "/mcp":
-            self._log_widget.write(main.MCP.list_tools())
+            self._log_widget.write(MCP.list_tools())
         elif cmd == "/inbox":
-            inbox = main.BUS.read_inbox("lead")
-            self._log_widget.write(main.json.dumps(inbox, indent=2)
+            inbox = BUS.read_inbox("lead")
+            self._log_widget.write(json.dumps(inbox, indent=2)
                                    if inbox else "(empty)")
         elif cmd == "/skills":
-            main.SKILLS.reload()
-            self._log_widget.write(main.SKILLS.list_all())
+            SKILLS.reload()
+            self._log_widget.write(SKILLS.list_all())
         elif cmd == "/trust":
-            main.TRUST_MARKER.parent.mkdir(parents=True, exist_ok=True)
-            main.TRUST_MARKER.write_text("trusted")
+            TRUST_MARKER.parent.mkdir(parents=True, exist_ok=True)
+            TRUST_MARKER.write_text("trusted")
             self._log_widget.write(
-                f"trust marker created at {main.TRUST_MARKER}")
+                f"trust marker created at {TRUST_MARKER}")
         elif cmd == "/mode":
             if not arg:
                 self._log_widget.write(
-                    f"current perm mode: [cyan]{main.PERMS.mode}[/] "
-                    f"(modes: {main.PERM_MODES})")
+                    f"current perm mode: [cyan]{PERMS.mode}[/] "
+                    f"(modes: {PERM_MODES})")
             else:
                 try:
-                    main.PERMS.set_mode(arg.strip())
-                    self._log_widget.write(f"perm mode -> [cyan]{main.PERMS.mode}[/]")
+                    PERMS.set_mode(arg.strip())
+                    self._log_widget.write(f"perm mode -> [cyan]{PERMS.mode}[/]")
                     self._refresh_status()
                 except ValueError as e:
                     self._log_widget.write(f"[red]error:[/] {e}")
@@ -536,7 +550,7 @@ class MiniCodeApp(App):
             if self.history:
                 self._log_widget.write(
                     f"[dim]manual compact{f' (focus={arg})' if arg else ''}[/]")
-                self.history[:] = main.auto_compact(self.history,
+                self.history[:] = auto_compact(self.history,
                                                     focus=arg or None)
             else:
                 self._log_widget.write("(nothing to compact)")
@@ -552,7 +566,7 @@ class MiniCodeApp(App):
     @work(thread=True, exclusive=True)
     def _run_agent_turn(self) -> None:
         try:
-            main.agent_loop(self.history)
+            agent_loop(self.history)
         except Exception as e:
             self.post_log(f"[error] {e}")
         finally:
