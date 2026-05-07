@@ -8,6 +8,25 @@ from minicode.config import (
 )
 
 
+def append_user_text(messages: list, text: str) -> None:
+    """Append `text` to the trailing user message (or start a new one).
+
+    Anthropic rejects two consecutive {"role":"user"} entries, so multiple
+    snippets drained in one iteration must be folded into one message.
+    """
+    if not text:
+        return
+    if messages and messages[-1].get("role") == "user":
+        prev = messages[-1]["content"]
+        if isinstance(prev, str):
+            messages[-1]["content"] = prev + "\n" + text
+            return
+        if isinstance(prev, list):
+            prev.append({"type": "text", "text": text})
+            return
+    messages.append({"role": "user", "content": text})
+
+
 def estimate_tokens(messages: list) -> int:
     """Cheap token approximation. Good enough to trigger compaction."""
     return len(json.dumps(messages, default=str)) // 4
