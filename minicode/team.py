@@ -11,9 +11,9 @@ from minicode.config import (
     INBOX_DIR, TEAM_DIR, TEAM_MAX_CONSECUTIVE_TURNS, VALID_MSG_TYPES,
     POLL_INTERVAL, IDLE_TIMEOUT, WORKDIR, client, MODEL, TOKEN_THRESHOLD,
 )
-from minicode.tasks import TASK_MGR
-from minicode.security import PERMS
-from minicode.hooks import HOOKS
+from minicode.tasks import TASK_MGR, TaskManager
+from minicode.security import PERMS, PermissionManager
+from minicode.hooks import HOOKS, HookManager
 from minicode.mcp import MCP
 from minicode.compression import estimate_tokens, microcompact, auto_compact, append_user_text
 from minicode.tools import run_bash, run_read, run_write, run_edit
@@ -96,9 +96,9 @@ class TeammateManager:
     who it is across long idles.
     """
 
-    def __init__(self, bus: MessageBus, task_mgr,
-                 perms, hooks,
-                 mcp):
+    def __init__(self, bus: MessageBus, task_mgr: TaskManager,
+                 perms: PermissionManager, hooks: HookManager,
+                 mcp: 'MCPManager'):
         TEAM_DIR.mkdir(parents=True, exist_ok=True)
         self.bus = bus
         self.task_mgr = task_mgr
