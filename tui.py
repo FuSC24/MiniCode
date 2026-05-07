@@ -35,7 +35,7 @@ from textual.widgets import (Button, Footer, Header, Input, Label, RichLog,
 
 # === SECTION: bootstrap ======================================================
 def _resolve_workdir() -> Path:
-    """Pick the user-requested workspace before importing main."""
+    """Pick the user-requested workspace before importing minicode submodules."""
     parser = argparse.ArgumentParser(prog="minicode-tui",
                                      description="MiniCode TUI launcher")
     parser.add_argument("workdir", nargs="?", default=".",
@@ -579,8 +579,9 @@ class MiniCodeApp(App):
 def run_app() -> None:
     """Entry point for `python tui.py` and the `minicode-tui` console script.
 
-    Named `run_app` (not `main`) because we already `import main` at the top of
-    this file -- defining `def main()` here would shadow the harness module.
+    Named `run_app` (not `main`) because we already imported minicode submodules
+    at the top of this file -- defining `def main()` here would shadow any
+    future `main` name in scope.
     """
     app = MiniCodeApp(WORKDIR)
     app.run()
