@@ -4,7 +4,6 @@ import json
 import re
 import subprocess
 import time
-from pathlib import Path
 
 from minicode.config import WORKDIR, WORKTREE_DIR
 from minicode.security import safe_path
