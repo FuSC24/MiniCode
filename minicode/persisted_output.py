@@ -1,10 +1,9 @@
 """Persist large tool outputs to disk; replace in transcript with a marker."""
 import re
-import uuid
 from pathlib import Path
 
 from minicode.config import (
-    WORKDIR, TOOL_RESULTS_DIR, PERSIST_TRIGGER_DEFAULT, PERSIST_TRIGGER_BASH,
+    WORKDIR, TOOL_RESULTS_DIR, PERSIST_TRIGGER_DEFAULT,
     PERSIST_PREVIEW_CHARS,
 )
 
