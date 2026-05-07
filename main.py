@@ -104,9 +104,6 @@ from minicode.prompts import HELP_TEXT
 # === SECTION: tool_dispatch ============================================
 # === SECTION: prompt_caching =================================================
 # === SECTION: parallel_dispatch ==============================================
-from minicode.dispatch import (
-    TOOL_HANDLERS, TOOLS_BASE,
-)
 
 
 # === SECTION: agent_loop =========================================
