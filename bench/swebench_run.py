@@ -133,9 +133,92 @@ def _prediction_line(instance_id: str, model_label: str, patch: str) -> str:
     }, ensure_ascii=False) + "\n"
 
 
+def _run_minicode(prompt_path: Path, ws: Path, log_path: Path, usage_path: Path,
+                  max_turns: int, timeout: int) -> str:
+    """Run minicode subprocess. Returns status string."""
+    cmd = [
+        "uv", "run", "--project", str(PROJECT_ROOT),
+        "python", str(PROJECT_ROOT / "main.py"),
+        "--prompt-file", str(prompt_path),
+        "--max-turns", str(max_turns),
+        "--usage-out", str(usage_path),
+    ]
+    env = os.environ.copy()
+    env["MINICODE_PERM_MODE"] = "yolo"
+    env["MINICODE_CACHE"] = env.get("MINICODE_CACHE", "1")
+    with log_path.open("w") as logf:
+        try:
+            subprocess.run(cmd, cwd=ws, env=env, stdout=logf, stderr=logf,
+                           timeout=timeout, check=False)
+            return "done"
+        except subprocess.TimeoutExpired:
+            return "timeout"
+
+
+def _run_claude(prompt_path: Path, ws: Path, log_path: Path, usage_path: Path,
+                model: str, max_budget_usd: float, timeout: int,
+                started: float) -> str:
+    """Run `claude --print` subprocess on prompt_path inside ws.
+    Parses claude's final JSON result, writes usage_path in minicode's shape."""
+    prompt = prompt_path.read_text()
+    cmd = [
+        "claude", "--print",
+        "--model", model,
+        "--permission-mode", "bypassPermissions",
+        "--allow-dangerously-skip-permissions",
+        "--max-budget-usd", str(max_budget_usd),
+        "--output-format", "json",
+        prompt,
+    ]
+    # Strip minicode's .env vars so claude uses its own (Anthropic) auth, not
+    # the 智谱 proxy that .env is configured for.
+    env = {k: v for k, v in os.environ.items()
+           if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL",
+                        "ANTHROPIC_AUTH_TOKEN")}
+    status = "done"
+    stdout_data = ""
+    with log_path.open("w") as logf:
+        try:
+            r = subprocess.run(cmd, cwd=ws, env=env, capture_output=True,
+                               text=True, timeout=timeout, check=False)
+            stdout_data = r.stdout
+            logf.write("--- STDOUT ---\n" + r.stdout +
+                       "\n--- STDERR ---\n" + r.stderr)
+            if r.returncode != 0:
+                status = "claude_error"
+        except subprocess.TimeoutExpired as e:
+            status = "timeout"
+            stdout_data = (e.stdout.decode() if isinstance(e.stdout, bytes)
+                           else (e.stdout or ""))
+            logf.write("--- TIMEOUT ---\n" + stdout_data)
+
+    try:
+        result = json.loads(stdout_data)
+        u = result.get("usage", {}) or {}
+        usage_path.write_text(json.dumps({
+            "turns": result.get("num_turns", 0),
+            "input_tokens": u.get("input_tokens", 0) or 0,
+            "output_tokens": u.get("output_tokens", 0) or 0,
+            "cache_creation_input_tokens": u.get("cache_creation_input_tokens", 0) or 0,
+            "cache_read_input_tokens": u.get("cache_read_input_tokens", 0) or 0,
+            "stop_reason": result.get("stop_reason"),
+            "wall_clock_seconds": round(time.time() - started, 2),
+            "total_cost_usd": result.get("total_cost_usd", 0.0),
+        }, indent=2))
+    except Exception:
+        # JSON malformed or missing — write minimal record so report still works.
+        usage_path.write_text(json.dumps({
+            "turns": 0, "input_tokens": 0, "output_tokens": 0,
+            "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0,
+            "stop_reason": status, "wall_clock_seconds": round(time.time()-started, 2),
+            "total_cost_usd": 0.0,
+        }, indent=2))
+    return status
+
+
 def run_one_case(row: dict, run_dir: Path, max_turns: int, timeout: int,
-                 model_label: str) -> dict:
-    """Run minicode against one SWE-bench case. Returns status dict."""
+                 model_label: str, engine: str = "minicode") -> dict:
+    """Run an engine against one SWE-bench case. Returns status dict."""
     instance_id = row["instance_id"]
     repo_slug = row["repo"]
     base_commit = row["base_commit"]
@@ -158,24 +241,15 @@ def run_one_case(row: dict, run_dir: Path, max_turns: int, timeout: int,
         problem_statement=problem, repo_path=str(ws), base_commit=base_commit,
     ))
 
-    cmd = [
-        "uv", "run", "--project", str(PROJECT_ROOT),
-        "python", str(PROJECT_ROOT / "main.py"),
-        "--prompt-file", str(prompt_path),
-        "--max-turns", str(max_turns),
-        "--usage-out", str(usage_path),
-    ]
-    env = os.environ.copy()
-    env["MINICODE_PERM_MODE"] = "yolo"
-    env["MINICODE_CACHE"] = env.get("MINICODE_CACHE", "1")
-
-    status = "done"
-    with log_path.open("w") as logf:
-        try:
-            subprocess.run(cmd, cwd=ws, env=env, stdout=logf, stderr=logf,
-                           timeout=timeout, check=False)
-        except subprocess.TimeoutExpired:
-            status = "timeout"
+    if engine == "minicode":
+        status = _run_minicode(prompt_path, ws, log_path, usage_path,
+                               max_turns, timeout)
+    elif engine == "claude":
+        status = _run_claude(prompt_path, ws, log_path, usage_path,
+                             model="claude-sonnet-4-6", max_budget_usd=2.0,
+                             timeout=timeout, started=started)
+    else:
+        raise ValueError(f"unknown engine: {engine}")
 
     try:
         patch = extract_patch(ws)
@@ -225,23 +299,24 @@ def _write_status(run_dir: Path, status: dict) -> None:
                                                      sort_keys=True))
 
 
-def _run_one_safe(row, run_dir_str, max_turns, timeout, model_label):
+def _run_one_safe(row, run_dir_str, max_turns, timeout, model_label, engine):
     """Top-level wrapper for ProcessPoolExecutor (must be picklable)."""
     try:
         return run_one_case(row, Path(run_dir_str), max_turns, timeout,
-                            model_label)
+                            model_label, engine=engine)
     except Exception as e:
         return {"instance_id": row["instance_id"], "status": "crashed",
                 "error": repr(e)}
 
 
 def cmd_run(args: argparse.Namespace) -> int:
-    if not SAMPLE_FILE.exists():
-        print(f"error: {SAMPLE_FILE} missing -- run `prepare` first",
+    sample_file = Path(args.sample_file) if args.sample_file else SAMPLE_FILE
+    if not sample_file.exists():
+        print(f"error: {sample_file} missing -- run `prepare` first",
               file=sys.stderr)
         return 2
-    ids = [s.strip() for s in SAMPLE_FILE.read_text().splitlines() if s.strip()]
-    print(f"loaded {len(ids)} instance ids")
+    ids = [s.strip() for s in sample_file.read_text().splitlines() if s.strip()]
+    print(f"loaded {len(ids)} instance ids from {sample_file.name}")
 
     ds = _load_dataset()
     by_id = {r["instance_id"]: r for r in ds}
@@ -258,12 +333,17 @@ def cmd_run(args: argparse.Namespace) -> int:
             != "done"]
     print(f"resuming: {len(rows) - len(todo)} done, {len(todo)} to run")
 
-    model_label = f"minicode-{os.environ.get('MODEL_ID', 'unknown')}"
+    if args.engine == "minicode":
+        model_label = f"minicode-{os.environ.get('MODEL_ID', 'unknown')}"
+    elif args.engine == "claude":
+        model_label = "claude-code-sonnet-4-6"
+    else:
+        raise ValueError(f"unknown engine: {args.engine}")
 
     with ProcessPoolExecutor(max_workers=args.workers) as pool:
         futures = {
             pool.submit(_run_one_safe, r, str(run_dir), args.max_turns,
-                        args.timeout, model_label): r["instance_id"]
+                        args.timeout, model_label, args.engine): r["instance_id"]
             for r in todo
         }
         for fut in as_completed(futures):
@@ -354,6 +434,10 @@ def main() -> int:
     pr.add_argument("--workers", type=int, default=4)
     pr.add_argument("--max-turns", type=int, default=60)
     pr.add_argument("--timeout", type=int, default=1800)
+    pr.add_argument("--engine", choices=("minicode", "claude"),
+                    default="minicode")
+    pr.add_argument("--sample-file", default=None,
+                    help="path to a sample-id file (default: bench/sample_70.txt)")
     pr.set_defaults(func=cmd_run)
 
     rp = sub.add_parser("report")

@@ -17,4 +17,6 @@ minicode-tui = "tui:run_app"
 [dependency-groups]
 dev = [
     "pytest>=9.0.3",
+    "sb-cli>=0.1.5",
+    "swebench>=4.1.0",
 ]
