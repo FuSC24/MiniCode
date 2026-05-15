@@ -38,3 +38,7 @@ dist/
 
 # Bench / eval harness (local-only, not part of the minicode core)
 /bench/
+
+# Docs — local notes only; ship just the README screenshot
+/docs/*
+!/docs/tui.png
