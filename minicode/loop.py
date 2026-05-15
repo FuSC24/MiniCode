@@ -6,8 +6,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from minicode.config import client, MODEL, TOKEN_THRESHOLD
-from minicode.security import PERMS
-from minicode.hooks import HOOKS
+from minicode.services.security import PERMS
+from minicode.services.hooks import HOOKS
 from minicode.todos import TODO
 from minicode.tasks import BG
 from minicode.scheduling import CRON

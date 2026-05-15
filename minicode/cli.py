@@ -8,8 +8,8 @@ from pathlib import Path
 from minicode.config import (
     WORKDIR, MODEL, STATE_DIR, TRUST_MARKER,
 )
-from minicode.security import PERMS, PERM_MODES
-from minicode.hooks import HOOKS
+from minicode.services.security import PERMS, PERM_MODES
+from minicode.services.hooks import HOOKS
 from minicode.memory import MEMORY
 from minicode.tasks import TASK_MGR
 from minicode.skills import SKILLS

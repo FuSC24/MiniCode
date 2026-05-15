@@ -12,8 +12,8 @@ from minicode.config import (
     POLL_INTERVAL, IDLE_TIMEOUT, WORKDIR, client, MODEL, TOKEN_THRESHOLD,
 )
 from minicode.tasks import TASK_MGR, TaskManager
-from minicode.security import PERMS, PermissionManager
-from minicode.hooks import HOOKS, HookManager
+from minicode.services.security import PERMS, PermissionManager
+from minicode.services.hooks import HOOKS, HookManager
 from minicode.mcp import MCP
 from minicode.compression import estimate_tokens, microcompact, auto_compact, append_user_text
 from minicode.tools import run_bash, run_read, run_write, run_edit

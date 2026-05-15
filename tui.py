@@ -59,8 +59,8 @@ WORKDIR = _resolve_workdir()
 import json  # noqa: E402
 
 from minicode.config import MODEL, STATE_DIR, TRUST_MARKER  # noqa: E402
-from minicode.security import PERMS, PERM_MODES  # noqa: E402
-from minicode.hooks import HOOKS  # noqa: E402
+from minicode.services.security import PERMS, PERM_MODES  # noqa: E402
+from minicode.services.hooks import HOOKS  # noqa: E402
 from minicode.memory import MEMORY  # noqa: E402
 from minicode.skills import SKILLS  # noqa: E402
 from minicode.tasks import TASK_MGR, BG  # noqa: E402

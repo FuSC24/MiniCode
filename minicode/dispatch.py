@@ -4,8 +4,8 @@ import os
 import threading
 
 from minicode.config import client
-from minicode.security import PermissionManager, PERMS
-from minicode.hooks import HookManager, HOOKS
+from minicode.services.security import PermissionManager, PERMS
+from minicode.services.hooks import HookManager, HOOKS
 from minicode.tools import (
     run_bash, run_read, run_write, run_edit, run_grep, run_glob,
 )

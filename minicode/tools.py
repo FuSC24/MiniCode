@@ -4,7 +4,7 @@ import subprocess
 
 from minicode.config import WORKDIR, CONTEXT_TRUNCATE_CHARS, PERSIST_TRIGGER_BASH
 from minicode.persisted_output import maybe_persist_output
-from minicode.security import safe_path
+from minicode.services.security import safe_path
 
 
 def _clamp_timeout(value, default: int, hi: int) -> int:

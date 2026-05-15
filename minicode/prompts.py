@@ -1,7 +1,7 @@
 """System prompt builder + REPL HELP_TEXT."""
 
 from minicode.config import WORKDIR
-from minicode.security import PERMS
+from minicode.services.security import PERMS
 from minicode.skills import SKILLS
 from minicode.memory import MEMORY
 

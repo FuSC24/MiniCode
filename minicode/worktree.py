@@ -6,7 +6,7 @@ import subprocess
 import time
 
 from minicode.config import WORKDIR, WORKTREE_DIR
-from minicode.security import safe_path
+from minicode.services.security import safe_path
 
 
 class WorktreeManager:
