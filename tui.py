@@ -61,13 +61,13 @@ import json  # noqa: E402
 from minicode.config import MODEL, STATE_DIR, TRUST_MARKER  # noqa: E402
 from minicode.services.security import PERMS, PERM_MODES  # noqa: E402
 from minicode.services.hooks import HOOKS  # noqa: E402
-from minicode.memory import MEMORY  # noqa: E402
-from minicode.skills import SKILLS  # noqa: E402
-from minicode.tasks import TASK_MGR, BG  # noqa: E402
-from minicode.scheduling import CRON  # noqa: E402
-from minicode.worktree import WORKTREES  # noqa: E402
-from minicode.mcp import MCP  # noqa: E402
-from minicode.team import BUS, TEAM  # noqa: E402
+from minicode.tools.memory import MEMORY  # noqa: E402
+from minicode.tools.skills import SKILLS  # noqa: E402
+from minicode.tools.tasks import TASK_MGR, BG  # noqa: E402
+from minicode.tools.scheduling import CRON  # noqa: E402
+from minicode.tools.worktree import WORKTREES  # noqa: E402
+from minicode.tools.mcp import MCP  # noqa: E402
+from minicode.tools.team import BUS, TEAM  # noqa: E402
 from minicode.compression import auto_compact  # noqa: E402
 from minicode.loop import agent_loop  # noqa: E402
 

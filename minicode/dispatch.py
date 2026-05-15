@@ -9,15 +9,15 @@ from minicode.services.hooks import HookManager, HOOKS
 from minicode.tools import (
     run_bash, run_read, run_write, run_edit, run_grep, run_glob,
 )
-from minicode.subagent import run_subagent
-from minicode.todos import TODO
-from minicode.skills import SKILLS
-from minicode.tasks import TASK_MGR, BG
-from minicode.memory import MEMORY
-from minicode.scheduling import CRON
-from minicode.worktree import WORKTREES
-from minicode.mcp import MCP
-from minicode.team import BUS, TEAM, handle_shutdown_request, handle_plan_review
+from minicode.tools.subagent import run_subagent
+from minicode.tools.todos import TODO
+from minicode.tools.skills import SKILLS
+from minicode.tools.tasks import TASK_MGR, BG
+from minicode.tools.memory import MEMORY
+from minicode.tools.scheduling import CRON
+from minicode.tools.worktree import WORKTREES
+from minicode.tools.mcp import MCP
+from minicode.tools.team import BUS, TEAM, handle_shutdown_request, handle_plan_review
 from minicode.prompts import build_system_prompt
 
 
@@ -75,7 +75,7 @@ TOOL_HANDLERS = {
 }
 
 
-from minicode.memory import MEMORY_TYPES
+from minicode.tools.memory import MEMORY_TYPES
 from minicode.config import VALID_MSG_TYPES
 
 TOOLS_BASE = [

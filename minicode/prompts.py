@@ -2,8 +2,8 @@
 
 from minicode.config import WORKDIR
 from minicode.services.security import PERMS
-from minicode.skills import SKILLS
-from minicode.memory import MEMORY
+from minicode.tools.skills import SKILLS
+from minicode.tools.memory import MEMORY
 
 
 def build_system_prompt() -> str:

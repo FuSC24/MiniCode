@@ -10,20 +10,20 @@ from minicode.config import (
 )
 from minicode.services.security import PERMS, PERM_MODES
 from minicode.services.hooks import HOOKS
-from minicode.memory import MEMORY
-from minicode.tasks import TASK_MGR
-from minicode.skills import SKILLS
-from minicode.scheduling import CRON
-from minicode.worktree import WORKTREES
-from minicode.mcp import MCP
-from minicode.team import BUS, TEAM
+from minicode.tools.memory import MEMORY
+from minicode.tools.tasks import TASK_MGR
+from minicode.tools.skills import SKILLS
+from minicode.tools.scheduling import CRON
+from minicode.tools.worktree import WORKTREES
+from minicode.tools.mcp import MCP
+from minicode.tools.team import BUS, TEAM
 from minicode.compression import auto_compact
 from minicode.prompts import HELP_TEXT
 from minicode.loop import agent_loop
 
 # Wire the agent_runner injection points referenced by scheduling and team.
-import minicode.scheduling as _sched
-import minicode.team as _team
+import minicode.tools.scheduling as _sched
+import minicode.tools.team as _team
 _sched.agent_runner = agent_loop
 _team.agent_runner = agent_loop
 

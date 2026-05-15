@@ -8,10 +8,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from minicode.config import client, MODEL, TOKEN_THRESHOLD
 from minicode.services.security import PERMS
 from minicode.services.hooks import HOOKS
-from minicode.todos import TODO
-from minicode.tasks import BG
-from minicode.scheduling import CRON
-from minicode.team import BUS
+from minicode.tools.todos import TODO
+from minicode.tools.tasks import BG
+from minicode.tools.scheduling import CRON
+from minicode.tools.team import BUS
 from minicode.compression import auto_compact, microcompact, estimate_tokens, append_user_text
 from minicode.dispatch import (
     all_tools, system_blocks_cached, tools_cached, CACHE_ENABLED,
