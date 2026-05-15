@@ -34,3 +34,7 @@ dist/
 
 # Misc
 *.log
+/logs/
+
+# Bench / eval harness (local-only, not part of the minicode core)
+/bench/
