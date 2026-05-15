@@ -19,7 +19,7 @@ from minicode.agent.dispatch import (
 )
 from minicode.prompts import build_system_prompt
 
-_BATCH = None  # Set by minicode.cli.run_prompt(); agent_loop reads it to record usage.
+_BATCH = None  # Set by minicode.commands.batch.run_prompt(); agent_loop reads it to record usage.
 
 
 def agent_loop(messages: list):

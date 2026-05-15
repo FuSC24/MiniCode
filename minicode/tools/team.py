@@ -1,6 +1,6 @@
 """Inbox-based message bus + teammate manager + protocol handlers.
 
-agent_runner is injected by minicode.cli at startup."""
+agent_runner is injected by minicode.commands at startup."""
 import json
 import re
 import threading
@@ -18,7 +18,7 @@ from minicode.tools.mcp import MCP
 from minicode.agent.compression import estimate_tokens, microcompact, auto_compact, append_user_text
 from minicode.tools import run_bash, run_read, run_write, run_edit
 
-agent_runner = None  # set by minicode.cli at startup; takes a history list and runs one turn-cycle.
+agent_runner = None  # set by minicode.commands at startup; takes a history list and runs one turn-cycle.
 
 # === SECTION: messaging ================================================
 class MessageBus:

@@ -1,4 +1,4 @@
-"""Cron-style scheduler. agent_runner is injected by minicode.cli at startup."""
+"""Cron-style scheduler. agent_runner is injected by minicode.commands at startup."""
 
 import json
 import threading
@@ -9,7 +9,7 @@ from queue import Queue, Empty
 
 from minicode.config import CRON_DIR
 
-agent_runner = None  # set by minicode.cli at startup; takes a history list and runs one turn-cycle.
+agent_runner = None  # set by minicode.commands at startup; takes a history list and runs one turn-cycle.
 
 
 def cron_matches(expr: str, dt: datetime) -> bool:

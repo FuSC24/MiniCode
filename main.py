@@ -2,7 +2,8 @@
 """MiniCode entrypoint - see minicode/ package for implementation."""
 import sys
 
-from minicode.cli import repl, run_prompt
+from minicode.commands.repl import repl
+from minicode.commands.batch import run_prompt
 from minicode.prompts import HELP_TEXT
 
 
