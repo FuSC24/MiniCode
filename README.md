@@ -1,8 +1,21 @@
 # MiniCode
 
-A single-file, runnable, mechanism-faithful coding agent for local use.
+A runnable, mechanism-faithful coding agent for local use.
 
-`main.py` packs the agent loop, tool dispatch, subagents, skills, context compaction, permissions, hooks, cross-session memory, task board, background jobs, cron scheduler, multi-agent collaboration, worktrees, and MCP into one file. `minicode/ui/` provides a Textual UI on top.
+The `minicode/` package implements the agent loop, tool dispatch, subagents, skills, context compaction, permissions, hooks, cross-session memory, task board, background jobs, cron scheduler, multi-agent collaboration, worktrees, and MCP. `main.py` is a thin entrypoint; `minicode/ui/` is a Textual TUI on top of the same runtime.
+
+```
+minicode/
+├── config.py · prompts.py
+├── agent/      loop · dispatch · compression
+├── tools/      bash · read · write · edit · grep · glob
+│               subagent · todos · tasks · memory · scheduling
+│               worktree · mcp · team · skills · persisted_output
+├── services/   hooks · security
+├── commands/   repl · batch
+└── ui/         app · stream_capture
+                screens/permission · components/side_panel
+```
 
 ## Install
 
