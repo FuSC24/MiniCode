@@ -2,7 +2,7 @@
 
 A single-file, runnable, mechanism-faithful coding agent for local use.
 
-`main.py` packs the agent loop, tool dispatch, subagents, skills, context compaction, permissions, hooks, cross-session memory, task board, background jobs, cron scheduler, multi-agent collaboration, worktrees, and MCP into one file. `tui.py` provides a Textual UI on top.
+`main.py` packs the agent loop, tool dispatch, subagents, skills, context compaction, permissions, hooks, cross-session memory, task board, background jobs, cron scheduler, multi-agent collaboration, worktrees, and MCP into one file. `minicode/ui/` provides a Textual UI on top.
 
 ## Install
 
@@ -25,7 +25,7 @@ ln -s "$(pwd)/bin/minicode" ~/.local/bin/minicode
 ![MiniCode TUI](docs/tui.png)
 
 ```bash
-uv run python tui.py        # TUI (recommended)
+uv run python -c "from minicode.ui import run_app; run_app()"  # TUI (recommended)
 uv run python main.py       # plain-text REPL
 
 # global launcher (after the symlink above)

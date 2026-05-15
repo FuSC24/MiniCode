@@ -1,25 +1,9 @@
-#!/usr/bin/env python3
-# MiniCode TUI -- a Textual frontend for the harness in main.py.
-#
-# Layout:
-#   [header: workdir | model | perm-mode | status]
-#   [conversation log (scrollable, styled)]
-#   [right side panel: tasks / team / cron summary, refreshed periodically]
-#   [input bar]
-#   [footer: keybindings]
-#
-# Design notes:
-# - main.py uses print() / input() for I/O. The TUI redirects sys.stdout to
-#   a styled RichLog, and overrides PermissionManager.ask_user with a modal
-#   dialog so permission prompts work without blocking on stdin.
-# - agent_loop runs in a worker thread; the UI thread stays responsive.
-# - Slash commands are handled in the TUI before falling back to agent_loop.
-
+"""MiniCode Textual TUI application."""
 from __future__ import annotations
 
 import argparse
+import json
 import os
-import queue
 import sys
 import threading
 from pathlib import Path
@@ -28,9 +12,24 @@ from textual import work
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
-from textual.screen import ModalScreen
-from textual.widgets import (Button, Footer, Header, Input, Label, RichLog,
-                             Static)
+from textual.widgets import Footer, Header, Input, Label, RichLog, Static
+
+from minicode.config import MODEL, STATE_DIR, TRUST_MARKER
+from minicode.services.security import PERMS, PERM_MODES
+from minicode.services.hooks import HOOKS
+from minicode.tools.memory import MEMORY
+from minicode.tools.skills import SKILLS
+from minicode.tools.tasks import TASK_MGR, BG
+from minicode.tools.scheduling import CRON
+from minicode.tools.worktree import WORKTREES
+from minicode.tools.mcp import MCP
+from minicode.tools.team import BUS, TEAM
+from minicode.agent.compression import auto_compact
+from minicode.agent.loop import agent_loop
+
+from minicode.ui.stream_capture import _StreamCapture
+from minicode.ui.screens.permission import _PermissionModal
+from minicode.ui.components.side_panel import _SidePanel
 
 
 # === SECTION: bootstrap ======================================================
@@ -55,133 +54,6 @@ def _resolve_workdir() -> Path:
 
 
 WORKDIR = _resolve_workdir()
-# Imports must come after chdir() so WORKDIR resolves correctly.
-import json  # noqa: E402
-
-from minicode.config import MODEL, STATE_DIR, TRUST_MARKER  # noqa: E402
-from minicode.services.security import PERMS, PERM_MODES  # noqa: E402
-from minicode.services.hooks import HOOKS  # noqa: E402
-from minicode.tools.memory import MEMORY  # noqa: E402
-from minicode.tools.skills import SKILLS  # noqa: E402
-from minicode.tools.tasks import TASK_MGR, BG  # noqa: E402
-from minicode.tools.scheduling import CRON  # noqa: E402
-from minicode.tools.worktree import WORKTREES  # noqa: E402
-from minicode.tools.mcp import MCP  # noqa: E402
-from minicode.tools.team import BUS, TEAM  # noqa: E402
-from minicode.agent.compression import auto_compact  # noqa: E402
-from minicode.agent.loop import agent_loop  # noqa: E402
-
-
-# === SECTION: stdout capture =================================================
-class _StreamCapture:
-    """Forward stdout writes to the TUI.
-
-    Strategy: complete lines (terminated by `\n`) are committed to the
-    permanent RichLog; the trailing partial line is shown live in a
-    `#stream-preview` Static so streaming model output appears character by
-    character without spamming the log with stub entries.
-    """
-
-    def __init__(self, app: "MiniCodeApp"):
-        self._app = app
-        self._buf = ""
-
-    def write(self, s: str) -> int:
-        if not s:
-            return 0
-        self._buf += s
-        while "\n" in self._buf:
-            line, self._buf = self._buf.split("\n", 1)
-            self._app.commit_stream_line(line)
-        if self._buf:
-            self._app.update_stream_preview(self._buf)
-        return len(s)
-
-    def flush(self):
-        # Each delta-write already updated the preview; nothing extra to do.
-        pass
-
-    def isatty(self) -> bool:
-        return False
-
-
-# === SECTION: permission modal ===============================================
-class _PermissionModal(ModalScreen[str]):
-    """y / n / always for one tool call."""
-
-    BINDINGS = [
-        Binding("y", "approve", "Allow once"),
-        Binding("a", "approve_always", "Always allow"),
-        Binding("n", "deny", "Deny"),
-        Binding("escape", "deny", "Deny"),
-    ]
-
-    def __init__(self, tool_name: str, preview: str):
-        super().__init__()
-        self._tool_name = tool_name
-        self._preview = preview
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="perm-box"):
-            yield Label(f"Permission requested: [bold cyan]{self._tool_name}[/]",
-                        id="perm-title")
-            yield Static(self._preview, id="perm-preview")
-            with Horizontal(id="perm-buttons"):
-                yield Button("Allow  (y)", id="perm-allow")
-                yield Button("Always (a)", id="perm-always")
-                yield Button("Deny   (n)", id="perm-deny")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "perm-allow":
-            self.dismiss("y")
-        elif event.button.id == "perm-always":
-            self.dismiss("always")
-        else:
-            self.dismiss("n")
-
-    def action_approve(self) -> None:
-        self.dismiss("y")
-
-    def action_approve_always(self) -> None:
-        self.dismiss("always")
-
-    def action_deny(self) -> None:
-        self.dismiss("n")
-
-
-# === SECTION: side panel =====================================================
-class _SidePanel(Static):
-    """Right-hand panel: live snapshot of tasks / team / cron."""
-
-    def on_mount(self) -> None:
-        self.refresh_panel()
-        self.set_interval(3.0, self.refresh_panel)
-
-    def refresh_panel(self) -> None:
-        try:
-            tasks = TASK_MGR.list_all()
-        except Exception as e:
-            tasks = f"(tasks error: {e})"
-        try:
-            team = TEAM.list_all()
-        except Exception as e:
-            team = f"(team error: {e})"
-        try:
-            cron = CRON.list_tasks()
-        except Exception as e:
-            cron = f"(cron error: {e})"
-        bg = BG.check() if BG.tasks else "No background tasks."
-        text = (
-            "[bold yellow]TASKS[/]\n"
-            f"{tasks}\n\n"
-            "[bold yellow]TEAM[/]\n"
-            f"{team}\n\n"
-            "[bold yellow]CRON[/]\n"
-            f"{cron}\n\n"
-            "[bold yellow]BACKGROUND[/]\n"
-            f"{bg}"
-        )
-        self.update(text)
 
 
 # === SECTION: app ============================================================
@@ -577,12 +449,7 @@ class MiniCodeApp(App):
 
 # === SECTION: entrypoint =====================================================
 def run_app() -> None:
-    """Entry point for `python tui.py` and the `minicode-tui` console script.
-
-    Named `run_app` (not `main`) because we already imported minicode submodules
-    at the top of this file -- defining `def main()` here would shadow any
-    future `main` name in scope.
-    """
+    """Entry point for `minicode-tui` console script."""
     app = MiniCodeApp(WORKDIR)
     app.run()
 

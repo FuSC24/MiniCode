@@ -84,7 +84,7 @@ if [ "$mode" = "tui" ]; then
     if [ -z "$target_dir" ]; then
         target_dir="$PWD"
     fi
-    exec uv run --project "$PROJECT_ROOT" python "$PROJECT_ROOT/tui.py" \
+    exec uv run --project "$PROJECT_ROOT" python -c "from minicode.ui import run_app; run_app()" \
         "$target_dir" "${pass_args[@]:-}"
 else
     if [ "$have_dir" = "1" ]; then

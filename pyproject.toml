@@ -12,7 +12,7 @@ dependencies = [
 
 [project.scripts]
 minicode = "main:repl"
-minicode-tui = "tui:run_app"
+minicode-tui = "minicode.ui:run_app"
 
 [dependency-groups]
 dev = [
