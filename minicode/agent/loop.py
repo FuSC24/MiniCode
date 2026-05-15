@@ -12,8 +12,8 @@ from minicode.tools.todos import TODO
 from minicode.tools.tasks import BG
 from minicode.tools.scheduling import CRON
 from minicode.tools.team import BUS
-from minicode.compression import auto_compact, microcompact, estimate_tokens, append_user_text
-from minicode.dispatch import (
+from minicode.agent.compression import auto_compact, microcompact, estimate_tokens, append_user_text
+from minicode.agent.dispatch import (
     all_tools, system_blocks_cached, tools_cached, CACHE_ENABLED,
     execute_one_tool, PARALLEL_SAFE_TOOLS, PARALLEL_MAX_WORKERS,
 )

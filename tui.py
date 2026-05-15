@@ -68,8 +68,8 @@ from minicode.tools.scheduling import CRON  # noqa: E402
 from minicode.tools.worktree import WORKTREES  # noqa: E402
 from minicode.tools.mcp import MCP  # noqa: E402
 from minicode.tools.team import BUS, TEAM  # noqa: E402
-from minicode.compression import auto_compact  # noqa: E402
-from minicode.loop import agent_loop  # noqa: E402
+from minicode.agent.compression import auto_compact  # noqa: E402
+from minicode.agent.loop import agent_loop  # noqa: E402
 
 
 # === SECTION: stdout capture =================================================

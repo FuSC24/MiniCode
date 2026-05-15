@@ -11,11 +11,11 @@ from minicode.config import (
     INBOX_DIR, TEAM_DIR, TEAM_MAX_CONSECUTIVE_TURNS, VALID_MSG_TYPES,
     POLL_INTERVAL, IDLE_TIMEOUT, WORKDIR, client, MODEL, TOKEN_THRESHOLD,
 )
-from minicode.tasks import TASK_MGR, TaskManager
+from minicode.tools.tasks import TASK_MGR, TaskManager
 from minicode.services.security import PERMS, PermissionManager
 from minicode.services.hooks import HOOKS, HookManager
-from minicode.mcp import MCP
-from minicode.compression import estimate_tokens, microcompact, auto_compact, append_user_text
+from minicode.tools.mcp import MCP
+from minicode.agent.compression import estimate_tokens, microcompact, auto_compact, append_user_text
 from minicode.tools import run_bash, run_read, run_write, run_edit
 
 agent_runner = None  # set by minicode.cli at startup; takes a history list and runs one turn-cycle.

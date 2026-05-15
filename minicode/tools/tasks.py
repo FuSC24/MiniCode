@@ -9,7 +9,7 @@ from pathlib import Path
 from queue import Queue, Empty
 
 from minicode.config import TASKS_DIR, WORKDIR
-from minicode.tools import _clamp_timeout
+from minicode.tools._common import _clamp_timeout
 
 
 # === SECTION: tasks ====================================================

@@ -17,9 +17,9 @@ from minicode.tools.scheduling import CRON
 from minicode.tools.worktree import WORKTREES
 from minicode.tools.mcp import MCP
 from minicode.tools.team import BUS, TEAM
-from minicode.compression import auto_compact
+from minicode.agent.compression import auto_compact
 from minicode.prompts import HELP_TEXT
-from minicode.loop import agent_loop
+from minicode.agent.loop import agent_loop
 
 # Wire the agent_runner injection points referenced by scheduling and team.
 import minicode.tools.scheduling as _sched
@@ -134,7 +134,7 @@ def run_prompt():
       --max-turns <N>                          hard turn cap (default: no cap)
       --usage-out <path>                       write per-run token usage JSON
     """
-    import minicode.loop
+    import minicode.agent.loop
     prompt = _arg("--prompt")
     prompt_file = _arg("--prompt-file")
     if prompt is None and prompt_file is None:
